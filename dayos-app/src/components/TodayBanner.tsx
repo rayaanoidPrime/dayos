@@ -43,7 +43,7 @@ export function TodayBanner() {
   }, [examMode, today])
 
   return (
-    <section className="mb-4 rounded-card border border-border bg-surface p-4">
+    <section className="mb-4 rounded-card border border-border bg-surface/65 p-4 backdrop-blur-md">
       <p className="text-sm font-semibold text-text">{format(today, 'EEEE, MMMM d')}</p>
       <p className="mt-1 text-xs text-muted">Streak: {streak} days</p>
       <p className="mt-2 text-sm text-text">{line}</p>

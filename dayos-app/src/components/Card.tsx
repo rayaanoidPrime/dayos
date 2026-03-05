@@ -24,7 +24,7 @@ export function Card({
   onToggleComplete,
 }: CardProps) {
   return (
-    <section className="mb-3 rounded-card border border-border bg-white p-4 shadow-sm">
+    <section className="mb-3 rounded-card border border-border bg-surface/65 p-4 shadow-[0_8px_22px_rgba(0,0,0,0.24)] backdrop-blur-md">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {completeable && (
@@ -39,7 +39,7 @@ export function Card({
               ✓
             </button>
           )}
-          <h3 className="text-sm font-semibold text-text">{title}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-text">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
           {rightLabel && <span className="text-xs text-muted">{rightLabel}</span>}

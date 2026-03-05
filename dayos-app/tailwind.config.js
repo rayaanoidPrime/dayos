@@ -4,18 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#3A86FF',
-        bg: '#FFFFFF',
-        surface: '#F7F8FA',
-        border: '#E8E8E8',
-        text: '#1A1A2E',
-        muted: '#6B7280',
-        success: '#10B981',
-        warning: '#F59E0B',
+        primary: '#f4efe8',
+        bg: '#1a1512',
+        surface: '#2a221d',
+        border: 'rgba(255,255,255,0.14)',
+        text: '#f6f1ea',
+        muted: 'rgba(255,255,255,0.66)',
+        success: '#8ad6b2',
+        warning: '#f8cf8f',
       },
       borderRadius: {
-        card: '12px',
-        input: '8px',
+        card: '16px',
+        input: '12px',
       },
     },
   },

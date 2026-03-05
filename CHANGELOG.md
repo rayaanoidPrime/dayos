@@ -303,3 +303,21 @@
 ### What is still left
 - Design language overhaul based on `design_inspo` references (theme/layout/motion pass).
 - Minor final polish and bundle optimization.
+
+## Commit 14 - Design Inspiration Theme Pass (Earthy Glass UI)
+### What changed
+- Applied `design_inspo` visual direction to core app shell:
+  - deep earthy dark palette,
+  - radial atmospheric background gradients,
+  - glassmorphism container and bottom navigation pill.
+- Updated typography tone (SF/Inter stack, uppercase micro-label treatment on cards).
+- Updated card surfaces to translucent elevated panels with blur/shadow depth.
+- Refreshed scratchpad FAB and sheets to align with the new visual language.
+- Updated Tailwind token palette/radius values to support the new look consistently across pages.
+
+### What this fixed
+- Replaced the prior generic/light look with a coherent, intentional style aligned to provided inspiration files.
+- Improved visual hierarchy and atmosphere on both mobile and desktop shells.
+
+### What is still left
+- Minor final polish and bundle optimization only.

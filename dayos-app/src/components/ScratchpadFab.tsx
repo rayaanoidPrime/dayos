@@ -78,15 +78,15 @@ export function ScratchpadFab() {
           setHistoryOpen(true)
           setEditorOpen(false)
         }}
-        className="fixed bottom-20 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-white shadow-lg"
+        className="fixed bottom-20 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-bg shadow-lg"
         aria-label="Open scratchpad"
       >
-        +
+        ✦
       </button>
 
       {isEditorOpen && (
         <div className="fixed inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white p-4">
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-border bg-bg p-4">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-text">Quick Scratchpad</h2>
               <button type="button" className="text-sm text-muted" onClick={() => setEditorOpen(false)}>
@@ -107,7 +107,7 @@ export function ScratchpadFab() {
 
       {isHistoryOpen && (
         <div className="fixed inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
-          <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl bg-white p-4">
+          <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-border bg-bg p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-text">Scratch Notes</h2>
               <button type="button" className="text-sm text-muted" onClick={() => setHistoryOpen(false)}>
