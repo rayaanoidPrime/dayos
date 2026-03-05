@@ -1,73 +1,117 @@
-# React + TypeScript + Vite
+# DayOS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+DayOS is an offline-first PWA for daily execution across fitness, nutrition, study, research, and journaling.
 
-Currently, two official plugins are available:
+## Tech Stack
+- React 19 + TypeScript + Vite
+- Zustand (local state)
+- Dexie (IndexedDB local persistence)
+- Supabase (auth + remote sync, optional but recommended)
+- Workbox via `vite-plugin-pwa`
+- Vitest + Testing Library
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features Implemented
+- Today checklist with per-card completion + collapse persistence
+- Workout logging (planned vs actual sets, rest-day notes)
+- Nutrition markdown import (preview, deselect rows, templates, water tracking)
+- Study blocks with Pomodoro runtime + background pause handling
+- Schedule weekly grid + deadlines/events
+- Research Kanban + paper log + arXiv autofill attempt
+- Journal prompted/free modes + Sunday review flow
+- Stats: streaks, missed-day heatmap, weekly summaries, research completion rates
+- Scratchpad FAB with autosave, pin/promote, searchable archive
+- Supabase magic-link auth hooks + sync queue flush/auto-retry
+- PWA manifest + service worker background sync route
 
-## React Compiler
+## Prerequisites
+- Node.js 20+
+- npm 10+
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Check:
+```bash
+node -v
+npm -v
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 1) Install
+From project root:
+```bash
+cd dayos-app
+npm install
 ```
+
+## 2) Environment Setup
+Create `dayos-app/.env.local`:
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+Notes:
+- App still runs without these values, but auth/sync will stay local-only.
+- For full functionality, set both variables.
+
+## 3) Supabase Setup (Recommended)
+1. Create a Supabase project.
+2. Open SQL Editor in Supabase.
+3. Run:
+- [`dayos-app/supabase/schema.sql`](./supabase/schema.sql)
+
+This creates tables + RLS policies expected by the app.
+
+## 4) Run Development Server
+```bash
+npm run dev
+```
+Open the URL shown by Vite (usually `http://localhost:5173`).
+
+## 5) Build and Preview
+```bash
+npm run build
+npm run preview
+```
+
+## 6) Run Tests
+```bash
+npm run test
+```
+
+Watch mode:
+```bash
+npm run test:watch
+```
+
+Lint:
+```bash
+npm run lint
+```
+
+## Auth + Sync Usage
+- Go to **Settings > Supabase Auth & Sync**.
+- Enter email and click **Send link** for magic-link sign-in.
+- After signing in, session state is shown in Settings.
+- Use **Flush queue now** to manually push pending local writes.
+- Auto-sync also runs on interval and when network comes back.
+
+## PWA Notes
+- App is installable (manifest + icons included).
+- Service worker is generated during build.
+- Workbox runtime caching includes a background sync route for Supabase POST writes.
+
+## Troubleshooting
+- `Supabase env vars are missing` in Settings:
+  - Check `.env.local` keys and restart dev server.
+- Sync queue not clearing:
+  - Ensure you are signed in and schema SQL was applied in Supabase.
+  - Check browser network tab for 401/403 (usually RLS/auth mismatch).
+- Build warns about large bundle size:
+  - This is currently expected; code-splitting optimization is pending polish.
+
+## Project Scripts
+From `dayos-app`:
+- `npm run dev` - start dev server
+- `npm run build` - type-check + production build
+- `npm run preview` - preview production build
+- `npm run test` - run tests with coverage
+- `npm run test:watch` - watch tests
+- `npm run lint` - lint code
