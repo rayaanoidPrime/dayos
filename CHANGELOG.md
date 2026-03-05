@@ -111,3 +111,36 @@
 - Stats completion: richer weekly summaries and module-level trend visualizations.
 - Sunday review prompts/workflow expansion (beyond current weekly intentions capture).
 - Production-ready PWA icons/assets and polish pass.
+
+## Commit 5 - Workout Logging and Pomodoro Runtime Baseline
+### What changed
+- Added persisted `workoutStore` with:
+  - weekly split session mapping,
+  - per-day workout logs,
+  - planned exercise templates by session type,
+  - actual set logging per exercise,
+  - rest-day note support.
+- Upgraded Today Workout card:
+  - auto-detects daily session from weekly split,
+  - supports planned vs actual set capture,
+  - shows rest-day variant UI with recovery note.
+- Added persisted `studyStore` with daily study blocks and pomodoro counters.
+- Upgraded Today Study card:
+  - functional 25-minute timer baseline (start/pause/reset),
+  - timer assignment to a selected study block,
+  - auto-increments block pomodoro count on cycle completion,
+  - background pause behavior using `visibilitychange`,
+  - local notification prompt/path when timer is paused in background.
+
+### What this fixed
+- Delivers the missing baseline workout logging flow (planned vs actual sets) and rest-day variant.
+- Delivers the missing functional Pomodoro runtime baseline with background pause handling.
+
+### What is still left
+- Supabase auth/session and robust background sync worker integration.
+- Workout analytics depth (progressive overload charts/weekly volume summaries in Stats).
+- Pomodoro depth (break cycles, long-break cadence, richer timer/session history).
+- Research module hardening and per-project completion analytics.
+- Sunday review workflow expansion and tighter cross-module weekly recap.
+- Additional Stats visualizations (module trends/heatmaps).
+- Production-ready PWA icons/assets and final UX polish pass.

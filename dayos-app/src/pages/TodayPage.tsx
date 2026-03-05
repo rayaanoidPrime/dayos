@@ -7,8 +7,10 @@ import { parseNutritionMarkdownTable, type ParsedMealRow } from '../lib/nutritio
 import type { Meal } from '../types/domain'
 import { useJournalStore } from '../store/journalStore'
 import { useScheduleStore } from '../store/scheduleStore'
+import { useStudyStore } from '../store/studyStore'
 import { cardKeys, type TodayCardKey, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
+import { useWorkoutStore } from '../store/workoutStore'
 
 export function TodayPage() {
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [])
@@ -36,6 +38,25 @@ export function TodayPage() {
   const entriesByDate = useJournalStore((state) => state.entriesByDate)
   const setJournalMode = useJournalStore((state) => state.setJournalMode)
   const updateEntry = useJournalStore((state) => state.updateEntry)
+  const weeklySplit = useWorkoutStore((state) => state.weeklySplit)
+  const logsByDate = useWorkoutStore((state) => state.logsByDate)
+  const ensureDayLog = useWorkoutStore((state) => state.ensureDayLog)
+  const logActualSet = useWorkoutStore((state) => state.logActualSet)
+  const setRestDayNote = useWorkoutStore((state) => state.setRestDayNote)
+  const studyByDate = useStudyStore((state) => state.byDate)
+  const ensureStudyDate = useStudyStore((state) => state.ensureDate)
+  const addStudyBlock = useStudyStore((state) => state.addBlock)
+  const incrementPomodoro = useStudyStore((state) => state.incrementPomodoro)
+
+  const [setRepsInput, setSetRepsInput] = useState('8')
+  const [setWeightInput, setSetWeightInput] = useState('0')
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState<number | null>(null)
+  const [newSubject, setNewSubject] = useState('')
+  const [newTopic, setNewTopic] = useState('')
+  const [newTargetMins, setNewTargetMins] = useState('25')
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
+  const [isRunningTimer, setIsRunningTimer] = useState(false)
+  const [remainingSecs, setRemainingSecs] = useState(25 * 60)
 
   const collapsed = collapsedByDate[today] ?? {}
   const complete = completionByDate[today] ?? {}
@@ -69,6 +90,10 @@ export function TodayPage() {
 
   const waterMl = waterMlByDate[today] ?? 0
   const journalEntry = entriesByDate[today]
+  const dayIndexForSplit = (new Date().getDay() + 6) % 7
+  const sessionType = weeklySplit[dayIndexForSplit] ?? 'rest'
+  const workoutLog = logsByDate[today]
+  const studyBlocks = studyByDate[today]?.blocks ?? []
 
   const progress = (value: number, goal: number) => (goal <= 0 ? 0 : Math.min(100, Math.round((value / goal) * 100)))
 
@@ -177,6 +202,52 @@ export function TodayPage() {
     onToggleCollapse: () => setCardCollapsed(today, key, !(collapsed[key] ?? false)),
   })
 
+  useEffect(() => {
+    ensureDayLog(today, sessionType)
+  }, [ensureDayLog, sessionType, today])
+
+  useEffect(() => {
+    ensureStudyDate(today)
+  }, [ensureStudyDate, today])
+
+  useEffect(() => {
+    if (!isRunningTimer) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setRemainingSecs((secs) => {
+        if (secs <= 1) {
+          if (activeBlockId) {
+            incrementPomodoro(today, activeBlockId)
+          }
+          setIsRunningTimer(false)
+          return 25 * 60
+        }
+        return secs - 1
+      })
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [activeBlockId, incrementPomodoro, isRunningTimer, today])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden' || !isRunningTimer) {
+        return
+      }
+      setIsRunningTimer(false)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('Pomodoro paused', {
+          body: 'DayOS paused your timer while the app is in background.',
+        })
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [isRunningTimer])
+
   return (
     <div>
       <TodayBanner />
@@ -209,11 +280,68 @@ export function TodayPage() {
       )}
 
       {visibleCards.includes('workout') && (
-        <Card title="Workout & Fitness" rightLabel="Push Day" {...cardProps('workout')}>
-          <ul className="space-y-2 text-sm text-text">
-            <li className="rounded-input border border-border px-3 py-2">Bench Press - 4 x 8 - 70kg</li>
-            <li className="rounded-input border border-border px-3 py-2">Incline Dumbbell Press - 3 x 10</li>
-          </ul>
+        <Card title="Workout & Fitness" rightLabel={sessionType.toUpperCase()} {...cardProps('workout')}>
+          {workoutLog?.sessionType === 'rest' ? (
+            <div className="rounded-input border border-border p-3">
+              <p className="text-sm text-text">Rest day. Capture recovery notes.</p>
+              <textarea
+                className="mt-2 h-20 w-full rounded-input border border-border p-2 text-sm"
+                placeholder="Mobility, sleep, soreness..."
+                value={workoutLog.restDayNote}
+                onChange={(event) => setRestDayNote(today, event.target.value)}
+              />
+            </div>
+          ) : (
+            <ul className="space-y-2 text-sm text-text">
+              {workoutLog?.exercises.map((exercise, index) => (
+                <li key={`${exercise.name}-${index}`} className="rounded-input border border-border px-3 py-2">
+                  <p>
+                    {exercise.name} - {exercise.plannedSets} x {exercise.plannedReps}
+                    {exercise.weightKg ? ` - ${exercise.weightKg}kg` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">Logged sets: {exercise.loggedSets.length}</p>
+                  <button
+                    type="button"
+                    className="mt-2 rounded border border-border px-2 py-1 text-xs"
+                    onClick={() => setActiveExerciseIndex(activeExerciseIndex === index ? null : index)}
+                  >
+                    Log actual set
+                  </button>
+                  {activeExerciseIndex === index && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        className="h-8 w-20 rounded-input border border-border px-2 text-xs"
+                        value={setRepsInput}
+                        onChange={(event) => setSetRepsInput(event.target.value)}
+                        placeholder="Reps"
+                      />
+                      <input
+                        className="h-8 w-20 rounded-input border border-border px-2 text-xs"
+                        value={setWeightInput}
+                        onChange={(event) => setSetWeightInput(event.target.value)}
+                        placeholder="Kg"
+                      />
+                      <button
+                        type="button"
+                        className="h-8 rounded border border-border px-2 text-xs"
+                        onClick={() => {
+                          const reps = Number(setRepsInput)
+                          const weight = Number(setWeightInput)
+                          if (!Number.isFinite(reps) || reps <= 0) {
+                            return
+                          }
+                          logActualSet(today, index, reps, Number.isFinite(weight) && weight > 0 ? weight : undefined)
+                          setActiveExerciseIndex(null)
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       )}
 
@@ -345,7 +473,100 @@ export function TodayPage() {
 
       {visibleCards.includes('study') && (
         <Card title="Study Sessions" rightLabel="Pomodoro 25/5" {...cardProps('study')}>
-          <p className="text-sm text-text">ME256 controls revision - 2 pomodoros complete</p>
+          <div className="mb-2 rounded-input border border-border p-2">
+            <p className="text-xs font-semibold text-text">
+              Timer: {Math.floor(remainingSecs / 60)
+                .toString()
+                .padStart(2, '0')}
+              :
+              {(remainingSecs % 60).toString().padStart(2, '0')}
+            </p>
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                className="rounded border border-border px-2 py-1 text-xs"
+                onClick={async () => {
+                  if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                    await Notification.requestPermission()
+                  }
+                  setIsRunningTimer((running) => !running)
+                }}
+              >
+                {isRunningTimer ? 'Pause' : 'Start'}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-border px-2 py-1 text-xs"
+                onClick={() => {
+                  setIsRunningTimer(false)
+                  setRemainingSecs(25 * 60)
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-2 space-y-2 rounded-input border border-border p-2">
+            <p className="text-xs font-semibold text-text">Study blocks</p>
+            {studyBlocks.map((block) => (
+              <div key={block.id} className="rounded border border-border bg-surface p-2 text-xs">
+                <p className="font-semibold text-text">{block.subject}</p>
+                <p className="text-muted">{block.topic || 'No topic'}</p>
+                <p className="text-muted">
+                  Target {block.targetMins} min - Pomodoros {block.pomodorosDone}
+                </p>
+                <button
+                  type="button"
+                  className="mt-1 rounded border border-border px-2 py-1"
+                  onClick={() => {
+                    setActiveBlockId(block.id)
+                    setRemainingSecs(25 * 60)
+                    setIsRunningTimer(true)
+                  }}
+                >
+                  Focus on this block
+                </button>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2">
+              <input
+                className="h-8 flex-1 rounded-input border border-border px-2 text-xs"
+                placeholder="Subject"
+                value={newSubject}
+                onChange={(event) => setNewSubject(event.target.value)}
+              />
+              <input
+                className="h-8 flex-1 rounded-input border border-border px-2 text-xs"
+                placeholder="Topic"
+                value={newTopic}
+                onChange={(event) => setNewTopic(event.target.value)}
+              />
+              <input
+                className="h-8 w-20 rounded-input border border-border px-2 text-xs"
+                placeholder="Mins"
+                value={newTargetMins}
+                onChange={(event) => setNewTargetMins(event.target.value)}
+              />
+              <button
+                type="button"
+                className="h-8 rounded border border-border px-2 text-xs"
+                onClick={() => {
+                  const mins = Number(newTargetMins)
+                  if (!newSubject.trim() || !Number.isFinite(mins) || mins <= 0) {
+                    return
+                  }
+                  addStudyBlock(today, newSubject.trim(), newTopic.trim(), mins)
+                  setNewSubject('')
+                  setNewTopic('')
+                  setNewTargetMins('25')
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
           <div className="mt-2 rounded-input border border-border p-2">
             <p className="text-xs font-semibold text-text">Today's classes</p>
             <ul className="mt-1 space-y-1 text-xs text-muted">
