@@ -368,3 +368,27 @@
 - Route-level screen-by-screen alignment:
   - `Today`, `Plan(Schedule)`, `Research`, `Stats`, and `You` still need exact/inferred layout parity with inspo.
 - Final visual parity pass after route updates.
+
+## Commit 18 - Plan and Research Screen Layout Parity
+### What changed
+- Rebuilt `Schedule` tab into an inspo-matched `Plan` layout:
+  - day-chip selector row,
+  - day-focused schedule cards,
+  - event cards,
+  - styled add-event form integrated into the same visual language.
+- Rebuilt `Research` tab into inspo-matched `Paper Log` layout:
+  - back-nav micro header, title/subtitle block,
+  - arXiv import input group with chip filters,
+  - paper table with status tags and notes row treatment.
+- Preserved and restyled existing functional capabilities on Research:
+  - task board add/move flow,
+  - arXiv autofill,
+  - manual paper entry and status assignment.
+
+### What this fixed
+- Resolves the largest layout mismatch on the two non-Today work screens where inspo clearly defined structure.
+- Keeps all previously shipped schedule/research functionality while bringing UI hierarchy in line with inspo patterns.
+
+### What is still left
+- `Today`, `Stats`, and `You` still need final screen-specific parity/inferred redesign pass.
+- Final global polish after those route updates.
