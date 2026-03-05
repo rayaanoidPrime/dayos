@@ -392,3 +392,28 @@
 ### What is still left
 - `Today`, `Stats`, and `You` still need final screen-specific parity/inferred redesign pass.
 - Final global polish after those route updates.
+
+## Commit 19 - Today + You Redesign and Stats Header Alignment
+### What changed
+- Updated `Today` screen hierarchy to match inspo structure more closely:
+  - added the inspo-style header block (`Institute of Natural Law`, weekday title, date/week subtitle),
+  - added a prominent session timer hero with inline play/pause control.
+- Redesigned `You` tab into an inspo-driven profile dashboard:
+  - deep-work bar chart,
+  - thesis/workout stat cards,
+  - consistency heatmap block,
+  - editable semester goal rows.
+- Kept all prior `You` functionality active inside the redesigned layout:
+  - Google sign-in/out,
+  - sync queue/flush actions,
+  - exam mode,
+  - sunday planning save flow.
+- Added a matching top header treatment to `Stats` for visual continuity.
+- Corrected primary-button contrast in the updated white-primary palette (`text-bg` on white primary actions).
+
+### What this fixed
+- Resolves the remaining major mismatch on profile/personal dashboard styling versus the inspo profile references.
+- Removes white-on-white primary button text regressions introduced by token alignment.
+
+### What is still left
+- Final parity polish pass for fine-grained spacing/typography consistency across all route details.

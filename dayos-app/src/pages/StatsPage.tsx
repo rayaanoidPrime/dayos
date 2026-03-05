@@ -170,6 +170,12 @@ export function StatsPage() {
 
   return (
     <div>
+      <header className="pb-1 pt-1">
+        <span className="page-label">System Archive</span>
+        <h1 className="page-title">Stats</h1>
+        <p className="page-subtitle">Weekly signals, streaks, and reflections</p>
+      </header>
+
       <Card title="Streaks & Missed Days">
         <p className="text-sm text-text">Current streak: {streak} day(s)</p>
         <ul className="mt-2 space-y-1 text-xs text-muted">

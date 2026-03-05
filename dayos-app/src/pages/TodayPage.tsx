@@ -1,7 +1,6 @@
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/Card'
-import { TodayBanner } from '../components/TodayBanner'
 import { db, saveImportedMeals } from '../lib/db'
 import { parseNutritionMarkdownTable, type ParsedMealRow } from '../lib/nutritionParser'
 import type { Meal } from '../types/domain'
@@ -57,6 +56,9 @@ export function TodayPage() {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [isRunningTimer, setIsRunningTimer] = useState(false)
   const [remainingSecs, setRemainingSecs] = useState(25 * 60)
+  const dayLabel = useMemo(() => format(new Date(), 'EEEE'), [])
+  const dateLabel = useMemo(() => format(new Date(), 'MMMM d, yyyy'), [])
+  const weekLabel = useMemo(() => format(new Date(), 'II'), [])
 
   const collapsed = collapsedByDate[today] ?? {}
   const complete = completionByDate[today] ?? {}
@@ -282,7 +284,48 @@ export function TodayPage() {
 
   return (
     <div>
-      <TodayBanner />
+      <header className="pb-1 pt-1">
+        <span className="page-label">Institute of Natural Law</span>
+        <h1 className="page-title">{dayLabel}</h1>
+        <p className="page-subtitle">
+          {dateLabel} - Week {weekLabel}
+        </p>
+      </header>
+
+      <section className="mb-8 mt-6 text-left">
+        <span className="page-label">Current Session</span>
+        <div className="my-4 flex items-end gap-3 text-[58px] font-light leading-none tracking-[-0.03em] text-white [font-variant-numeric:tabular-nums]">
+          {Math.floor(remainingSecs / 60)
+            .toString()
+            .padStart(2, '0')}
+          :
+          {(remainingSecs % 60).toString().padStart(2, '0')}
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-white"
+            onClick={async () => {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                await Notification.requestPermission()
+              }
+              setIsRunningTimer((running) => !running)
+            }}
+          >
+            {isRunningTimer ? (
+              <svg viewBox="0 0 24 24" className="h-5 w-5">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-5 w-5">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            )}
+          </button>
+        </div>
+        <p className="text-[15px] text-muted">
+          {studyBlocks.find((block) => block.id === activeBlockId)?.topic || 'Background: Deep Work Focus Block'}
+        </p>
+      </section>
 
       {allVisibleComplete && (
         <Card title="Day complete!">
@@ -494,7 +537,7 @@ export function TodayPage() {
 
           <button
             type="button"
-            className="mt-2 h-10 w-full rounded-full bg-primary px-4 text-sm font-semibold text-white"
+            className="mt-2 h-10 w-full rounded-full bg-primary px-4 text-sm font-semibold text-bg"
             onClick={() => void saveSelectedMeals()}
           >
             Save selected rows
