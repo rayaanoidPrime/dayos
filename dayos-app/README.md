@@ -87,9 +87,9 @@ npm run lint
 ```
 
 ## Auth + Sync Usage
-- Go to **Settings > Supabase Auth & Sync**.
-- Enter email and click **Send link** for magic-link sign-in.
-- After signing in, session state is shown in Settings.
+- Go to **You** tab.
+- Click **Sign in with Google**.
+- After signing in, session state is shown in **You**.
 - Use **Flush queue now** to manually push pending local writes.
 - Auto-sync also runs on interval and when network comes back.
 
@@ -99,7 +99,7 @@ npm run lint
 - Workbox runtime caching includes a background sync route for Supabase POST writes.
 
 ## Troubleshooting
-- `Supabase env vars are missing` in Settings:
+- `Supabase env vars are missing` in You:
   - Check `.env.local` keys and restart dev server.
 - Sync queue not clearing:
   - Ensure you are signed in and schema SQL was applied in Supabase.

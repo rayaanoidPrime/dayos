@@ -703,7 +703,7 @@ export function TodayPage() {
 
       {visibleCards.length === 0 && (
         <Card title="Exam Mode">
-          <p className="text-sm text-text">No cards available. Review Exam Mode settings.</p>
+          <p className="text-sm text-text">No cards available. Review Exam Mode in the You tab.</p>
         </Card>
       )}
     </div>

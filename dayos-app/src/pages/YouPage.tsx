@@ -72,6 +72,14 @@ export function YouPage() {
       <Card title="You">
         {!hasSupabaseConfig && <p className="text-xs text-warning">Supabase env vars are missing in this build.</p>}
         <p className="mb-2 text-xs text-muted">Account: {sessionEmail ?? 'Not signed in'}</p>
+        {!sessionEmail && (
+          <div className="mb-3 rounded-input border border-border bg-bg/40 p-3 text-xs text-muted">
+            <p className="font-semibold uppercase tracking-[0.08em] text-text">First-time sign in</p>
+            <p className="mt-1">1. Click “Sign in with Google”.</p>
+            <p>2. Complete Google consent.</p>
+            <p>3. Return to this app tab; account status should update automatically.</p>
+          </div>
+        )}
         <div className="mb-3 rounded-input border border-border bg-bg/40 p-3">
           <p className="text-xs uppercase tracking-[0.08em] text-muted">Weekly Consistency</p>
           <div className="mt-2 flex h-20 items-end gap-1">

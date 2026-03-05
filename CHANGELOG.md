@@ -335,3 +335,16 @@
 
 ### What is still left
 - Minor final polish and bundle optimization only.
+
+## Commit 16 - You Onboarding Copy Cleanup
+### What changed
+- Added first-time OAuth onboarding hint block to `You` page when no active session is detected.
+- Updated Today exam-mode empty-state copy to reference the `You` tab (instead of old settings wording).
+- Updated README auth/sync instructions to `You` + Google sign-in flow.
+
+### What this fixed
+- Removes leftover settings-era wording from current user-facing docs/UI.
+- Makes first-time sign-in flow clearer directly inside the `You` tab.
+
+### What is still left
+- Minor final polish and bundle optimization only.
