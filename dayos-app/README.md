@@ -57,6 +57,18 @@ Without these values, the app still runs locally, but cloud auth/sync stays disa
 Run schema in Supabase SQL editor:
 - [`dayos-app/supabase/schema.sql`](./supabase/schema.sql)
 
+Configure Google sign-in:
+1. Supabase Dashboard -> **Authentication** -> **Providers** -> **Google**.
+2. Enable Google provider.
+3. Add Google OAuth Client ID and Client Secret.
+4. Supabase Dashboard -> **Authentication** -> **URL Configuration**:
+   - Site URL: your app base URL (for Vite dev usually `http://localhost:5173`)
+   - Add redirect URL allow list entry for your app origin (for local dev: `http://localhost:5173`)
+
+Important:
+- The **Supabase OAuth Server** feature (`/oauth/consent`) is for hosting your own OAuth server/apps.
+- It is separate from Google social login for app users, and does **not** replace enabling Google provider above.
+
 ## Run
 ```bash
 npm run dev

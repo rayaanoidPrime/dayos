@@ -26,7 +26,18 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
       redirectTo: window.location.origin,
     },
   })
-  return { error: error?.message ?? null }
+  if (!error) {
+    return { error: null }
+  }
+
+  if (error.message.includes('Unsupported provider')) {
+    return {
+      error:
+        'Google provider is disabled in Supabase. Enable it in Authentication > Providers > Google, add Google Client ID/Secret, and add this app origin to Auth URL settings redirect allow list.',
+    }
+  }
+
+  return { error: error.message }
 }
 
 export async function getSessionEmail(): Promise<string | null> {

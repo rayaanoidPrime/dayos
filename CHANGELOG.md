@@ -499,3 +499,21 @@
 
 ### What is still left
 - No functional blockers from this request set.
+
+## Commit 24 - Supabase Google OAuth Setup Clarification and Error Handling
+### What changed
+- Improved Google sign-in error handling in `supabase.ts`:
+  - detects Supabase `"Unsupported provider"` responses,
+  - returns a clear actionable message indicating Google provider must be enabled in Supabase Auth Providers.
+- Updated README Supabase setup instructions with exact Google provider steps:
+  - enable provider,
+  - add Google client credentials,
+  - configure Auth URL settings/redirect allow list for local origin.
+- Added explicit note that **Supabase OAuth Server** (`/oauth/consent`) is separate from user social login and not a replacement for enabling Google provider.
+
+### What this fixed
+- Resolves ambiguous sign-in failure messaging and directs setup to the correct Supabase dashboard area.
+- Prevents confusion between Supabase OAuth Server setup and Google social provider setup.
+
+### What is still left
+- Dashboard-side action still required once per Supabase project: enable Google provider and credentials.
