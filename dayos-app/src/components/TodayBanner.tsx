@@ -1,5 +1,7 @@
 import { differenceInCalendarDays, format } from 'date-fns'
 import { useMemo } from 'react'
+import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
+import { cardKeys, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
 
 const lines = [
@@ -11,11 +13,25 @@ const lines = [
 ]
 
 export function TodayBanner() {
-  const streak = useUIStore((state) => state.streak)
+  const completionByDate = useTodayStore((state) => state.completionByDate)
   const examMode = useUIStore((state) => state.examMode)
   const today = useMemo(() => new Date(), [])
   const dayIndex = today.getDay() + today.getMonth() + today.getDate()
   const line = lines[dayIndex % lines.length]
+
+  const streak = useMemo(() => {
+    const statuses = computeDayStatuses(
+      Array.from({ length: 30 }).map((_, index) => {
+        const date = new Date(today)
+        date.setDate(today.getDate() - (29 - index))
+        const key = date.toISOString().slice(0, 10)
+        const map = completionByDate[key] ?? {}
+        const hadChecklistActivity = cardKeys.every((card) => Boolean(map[card]))
+        return { date: key, hadChecklistActivity }
+      }),
+    )
+    return computeCurrentStreak(statuses)
+  }, [completionByDate, today])
 
   const examCountdown = useMemo(() => {
     if (!examMode.active || !examMode.examDate) {
@@ -33,10 +49,9 @@ export function TodayBanner() {
       <p className="mt-2 text-sm text-text">{line}</p>
       {examMode.active && (
         <span className="mt-3 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-          EXAM MODE {examCountdown ? `· ${examCountdown}` : ''}
+          EXAM MODE {examCountdown ? `- ${examCountdown}` : ''}
         </span>
       )}
     </section>
   )
 }
-

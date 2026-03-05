@@ -86,3 +86,28 @@
 - Journal completion: prompted mode, free mode toggle, Sunday review prompts, and searchable journal history.
 - Stats completion: streak/missed-day dashboard, weekly module summaries, and trend visualization.
 - PWA polish: production icon set/assets and installability/performance audit pass.
+
+## Commit 4 - Journal Modes and Streak Dashboard
+### What changed
+- Added persisted `journalStore` with per-day entries and mode support (`prompted` / `free`).
+- Upgraded Today Journal card to support:
+  - prompted reflections (`highlight`, `blockers`, `tomorrow priority`),
+  - free-write mode toggle,
+  - daily persistence keyed by ISO date.
+- Replaced streak placeholder in `TodayBanner` with computed streak logic based on actual card completion history.
+- Added Stats “Streaks & Missed Days” section with current streak and recent day statuses.
+- Added Stats “Journal Search” section for keyword search across saved journal entries.
+
+### What this fixed
+- Delivers the missing prompted/free Journal flow from the PRD baseline.
+- Replaces static streak placeholder with real computed day completion/miss tracking.
+- Adds searchable reflection history path in Stats.
+
+### What is still left
+- Supabase auth/session and true background sync worker implementation.
+- Workout depth: planned vs actual set logging UX + progressive overload analytics + rest-day UX.
+- Study runtime: Pomodoro timer lifecycle, background pause handling, and local notifications.
+- Research hardening: fuller project management flows, stronger arXiv autofill reliability, and completion analytics in Stats.
+- Stats completion: richer weekly summaries and module-level trend visualizations.
+- Sunday review prompts/workflow expansion (beyond current weekly intentions capture).
+- Production-ready PWA icons/assets and polish pass.

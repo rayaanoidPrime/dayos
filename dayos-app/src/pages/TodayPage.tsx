@@ -5,6 +5,7 @@ import { TodayBanner } from '../components/TodayBanner'
 import { db, saveImportedMeals } from '../lib/db'
 import { parseNutritionMarkdownTable, type ParsedMealRow } from '../lib/nutritionParser'
 import type { Meal } from '../types/domain'
+import { useJournalStore } from '../store/journalStore'
 import { useScheduleStore } from '../store/scheduleStore'
 import { cardKeys, type TodayCardKey, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
@@ -32,6 +33,9 @@ export function TodayPage() {
   const resetWater = useTodayStore((state) => state.resetWater)
   const recurringClasses = useScheduleStore((state) => state.recurringClasses)
   const events = useScheduleStore((state) => state.events)
+  const entriesByDate = useJournalStore((state) => state.entriesByDate)
+  const setJournalMode = useJournalStore((state) => state.setJournalMode)
+  const updateEntry = useJournalStore((state) => state.updateEntry)
 
   const collapsed = collapsedByDate[today] ?? {}
   const complete = completionByDate[today] ?? {}
@@ -64,6 +68,7 @@ export function TodayPage() {
   )
 
   const waterMl = waterMlByDate[today] ?? 0
+  const journalEntry = entriesByDate[today]
 
   const progress = (value: number, goal: number) => (goal <= 0 ? 0 : Math.min(100, Math.round((value / goal) * 100)))
 
@@ -363,7 +368,57 @@ export function TodayPage() {
 
       {visibleCards.includes('journal') && (
         <Card title="Journal & Reflection" {...cardProps('journal')}>
-          <textarea className="h-24 w-full rounded-input border border-border p-3 text-sm" placeholder="Highlight of the day..." />
+          <div className="mb-2 flex gap-2">
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-1 text-xs ${journalEntry?.mode !== 'free' ? 'border-primary text-primary' : 'border-border'}`}
+              onClick={() => setJournalMode(today, 'prompted')}
+            >
+              Prompted
+            </button>
+            <button
+              type="button"
+              className={`rounded-full border px-3 py-1 text-xs ${journalEntry?.mode === 'free' ? 'border-primary text-primary' : 'border-border'}`}
+              onClick={() => setJournalMode(today, 'free')}
+            >
+              Free write
+            </button>
+          </div>
+          {journalEntry?.mode === 'free' ? (
+            <textarea
+              className="h-24 w-full rounded-input border border-border p-3 text-sm"
+              placeholder="Write freely..."
+              value={journalEntry.freeText}
+              onChange={(event) => updateEntry(today, { freeText: event.target.value })}
+            />
+          ) : (
+            <div className="space-y-2">
+              <input
+                className="h-10 w-full rounded-input border border-border px-3 text-sm"
+                placeholder="Highlight of the day"
+                value={journalEntry?.highlight ?? ''}
+                onChange={(event) => updateEntry(today, { highlight: event.target.value })}
+              />
+              <input
+                className="h-10 w-full rounded-input border border-border px-3 text-sm"
+                placeholder="What slowed me down"
+                value={journalEntry?.blockers ?? ''}
+                onChange={(event) => updateEntry(today, { blockers: event.target.value })}
+              />
+              <input
+                className="h-10 w-full rounded-input border border-border px-3 text-sm"
+                placeholder="Tomorrow's #1 priority"
+                value={journalEntry?.topPriorityTomorrow ?? ''}
+                onChange={(event) => updateEntry(today, { topPriorityTomorrow: event.target.value })}
+              />
+              <textarea
+                className="h-24 w-full rounded-input border border-border p-3 text-sm"
+                placeholder="Additional notes..."
+                value={journalEntry?.freeText ?? ''}
+                onChange={(event) => updateEntry(today, { freeText: event.target.value })}
+              />
+            </div>
+          )}
         </Card>
       )}
 
