@@ -194,3 +194,25 @@
 - Research analytics: per-project completion metrics surfaced in Stats.
 - Sunday review workflow expansion and richer weekly retrospective summary.
 - Production-ready PWA icon/asset replacements and final UX polish pass.
+
+## Commit 8 - Weekly Analytics and Research Completion Stats
+### What changed
+- Expanded Stats tab with a 4-week missed-day heatmap visualization.
+- Added weekly module summary card covering:
+  - workout volume (`kg-reps`) and active sessions,
+  - study pomodoros + focus minutes,
+  - average daily water intake,
+  - weekly logged calories,
+  - weekly journal entry count.
+- Added per-project Research completion rates card with progress bars.
+- Wired Stats analytics to existing local stores (`workoutStore`, `studyStore`, `researchStore`, `todayStore`, `journalStore`) and current-week nutrition logs from IndexedDB.
+
+### What this fixed
+- Closes most of the previously remaining stats/analytics depth gap.
+- Surfaces project completion progress in Stats per PRD intent.
+
+### What is still left
+- Sunday review workflow expansion (dedicated weekly retrospective prompts + completed-task recap UX).
+- Service-worker-native background sync (current auto sync loop is app-runtime based).
+- Supabase schema migration/policy alignment for all synchronized tables.
+- PWA asset polish (replace placeholder icons with production-grade set).

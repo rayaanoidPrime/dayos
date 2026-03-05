@@ -1,18 +1,39 @@
+import { endOfWeek, format, startOfWeek } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { Card } from '../components/Card'
 import { db } from '../lib/db'
 import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
-import type { ScratchNote, SundayPlan } from '../types/domain'
+import type { Meal, ScratchNote, SundayPlan } from '../types/domain'
 import { useJournalStore } from '../store/journalStore'
+import { useResearchStore } from '../store/researchStore'
+import { useStudyStore } from '../store/studyStore'
 import { cardKeys, useTodayStore } from '../store/todayStore'
+import { useWorkoutStore } from '../store/workoutStore'
+
+function getCurrentWeekBounds() {
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+  return {
+    weekStartKey: format(weekStart, 'yyyy-MM-dd'),
+    weekEndKey: format(weekEnd, 'yyyy-MM-dd'),
+  }
+}
 
 export function StatsPage() {
   const [search, setSearch] = useState('')
   const [journalSearch, setJournalSearch] = useState('')
   const [notes, setNotes] = useState<ScratchNote[]>([])
   const [plans, setPlans] = useState<SundayPlan[]>([])
+  const [weekMeals, setWeekMeals] = useState<Meal[]>([])
+
   const completionByDate = useTodayStore((state) => state.completionByDate)
+  const waterMlByDate = useTodayStore((state) => state.waterMlByDate)
   const entriesByDate = useJournalStore((state) => state.entriesByDate)
+  const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
+  const studyByDate = useStudyStore((state) => state.byDate)
+  const projects = useResearchStore((state) => state.projects)
+  const tasks = useResearchStore((state) => state.tasks)
 
   useEffect(() => {
     void db.scratchNotes.toArray().then((rows) => {
@@ -27,6 +48,9 @@ export function StatsPage() {
     })
 
     void db.sundayPlans.orderBy('weekStartDate').reverse().toArray().then(setPlans)
+
+    const { weekStartKey, weekEndKey } = getCurrentWeekBounds()
+    void db.meals.where('date').between(weekStartKey, weekEndKey, true, true).toArray().then(setWeekMeals)
   }, [])
 
   const filteredNotes = useMemo(() => {
@@ -37,11 +61,11 @@ export function StatsPage() {
     return notes.filter((note) => note.content.toLowerCase().includes(query))
   }, [notes, search])
 
-  const { streak, recentStatuses } = useMemo(() => {
+  const { streak, recentStatuses, heatmapStatuses } = useMemo(() => {
     const statuses = computeDayStatuses(
-      Array.from({ length: 14 }).map((_, index) => {
+      Array.from({ length: 28 }).map((_, index) => {
         const date = new Date()
-        date.setDate(date.getDate() - (13 - index))
+        date.setDate(date.getDate() - (27 - index))
         const key = date.toISOString().slice(0, 10)
         const map = completionByDate[key] ?? {}
         const hadChecklistActivity = cardKeys.every((card) => Boolean(map[card]))
@@ -51,6 +75,7 @@ export function StatsPage() {
     return {
       streak: computeCurrentStreak(statuses),
       recentStatuses: statuses.slice(-7).reverse(),
+      heatmapStatuses: statuses,
     }
   }, [completionByDate])
 
@@ -65,6 +90,73 @@ export function StatsPage() {
     )
   }, [entriesByDate, journalSearch])
 
+  const weeklySummary = useMemo(() => {
+    const { weekStartKey, weekEndKey } = getCurrentWeekBounds()
+    const isCurrentWeekDate = (key: string) => key >= weekStartKey && key <= weekEndKey
+
+    const weeklyWorkoutLogs = Object.entries(workoutLogsByDate)
+      .filter(([date]) => isCurrentWeekDate(date))
+      .map(([, log]) => log)
+
+    const weeklyWorkoutVolumeKg = weeklyWorkoutLogs.reduce(
+      (total, log) =>
+        total +
+        log.exercises.reduce(
+          (exerciseTotal, exercise) =>
+            exerciseTotal +
+            exercise.loggedSets.reduce((setTotal, setItem) => setTotal + (setItem.weightKg ?? exercise.weightKg ?? 0) * setItem.reps, 0),
+          0,
+        ),
+      0,
+    )
+
+    const workoutSessionsWithActivity = weeklyWorkoutLogs.filter((log) =>
+      log.exercises.some((exercise) => exercise.loggedSets.length > 0),
+    ).length
+
+    const weeklyStudyBlocks = Object.entries(studyByDate)
+      .filter(([date]) => isCurrentWeekDate(date))
+      .flatMap(([, day]) => day.blocks)
+    const weeklyPomodoros = weeklyStudyBlocks.reduce((total, block) => total + block.pomodorosDone, 0)
+    const weeklyFocusMins = weeklyPomodoros * 25
+
+    const weeklyWaterEntries = Object.entries(waterMlByDate).filter(([date]) => isCurrentWeekDate(date))
+    const weeklyWaterAvgMl =
+      weeklyWaterEntries.length > 0
+        ? Math.round(weeklyWaterEntries.reduce((sum, [, value]) => sum + value, 0) / weeklyWaterEntries.length)
+        : 0
+
+    const weeklyCalories = weekMeals.reduce((sum, meal) => sum + meal.calories, 0)
+
+    const projectCompletion = projects.map((project) => {
+      const projectTasks = tasks.filter((task) => task.projectId === project.id)
+      const done = projectTasks.filter((task) => task.status === 'done').length
+      const rate = projectTasks.length > 0 ? Math.round((done / projectTasks.length) * 100) : 0
+      return {
+        id: project.id,
+        name: project.name,
+        done,
+        total: projectTasks.length,
+        rate,
+      }
+    })
+
+    const weeklyJournalCount = Object.keys(entriesByDate).filter((date) => isCurrentWeekDate(date)).length
+
+    return {
+      weeklyWorkoutVolumeKg,
+      workoutSessionsWithActivity,
+      weeklyPomodoros,
+      weeklyFocusMins,
+      weeklyWaterAvgMl,
+      weeklyCalories,
+      projectCompletion,
+      weeklyJournalCount,
+      weekStartKey,
+      weekEndKey,
+    }
+  }, [entriesByDate, projects, studyByDate, tasks, waterMlByDate, weekMeals, workoutLogsByDate])
+
   return (
     <div>
       <Card title="Streaks & Missed Days">
@@ -75,6 +167,49 @@ export function StatsPage() {
               {item.date}: {item.status}
             </li>
           ))}
+        </ul>
+      </Card>
+
+      <Card title="Missed-Day Heatmap (4 weeks)">
+        <div className="grid grid-cols-7 gap-1">
+          {heatmapStatuses.map((item) => (
+            <div
+              key={item.date}
+              title={`${item.date}: ${item.status}`}
+              className={`h-6 rounded ${item.status === 'complete' ? 'bg-success/30' : 'bg-warning/30'}`}
+            />
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Weekly Summary">
+        <p className="text-xs text-muted">
+          {weeklySummary.weekStartKey} to {weeklySummary.weekEndKey}
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-text">
+          <li>Workout volume: {weeklySummary.weeklyWorkoutVolumeKg} kg-reps</li>
+          <li>Workout sessions with activity: {weeklySummary.workoutSessionsWithActivity}</li>
+          <li>Study focus: {weeklySummary.weeklyFocusMins} mins ({weeklySummary.weeklyPomodoros} pomodoros)</li>
+          <li>Average daily water: {weeklySummary.weeklyWaterAvgMl} ml</li>
+          <li>Total logged calories: {weeklySummary.weeklyCalories}</li>
+          <li>Journal entries this week: {weeklySummary.weeklyJournalCount}</li>
+        </ul>
+      </Card>
+
+      <Card title="Research Completion Rates">
+        <ul className="space-y-2">
+          {weeklySummary.projectCompletion.map((project) => (
+            <li key={project.id} className="rounded-input border border-border p-2 text-sm text-text">
+              <p className="font-semibold">{project.name}</p>
+              <p className="text-xs text-muted">
+                Done {project.done}/{project.total} ({project.rate}%)
+              </p>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${project.rate}%` }} />
+              </div>
+            </li>
+          ))}
+          {weeklySummary.projectCompletion.length === 0 && <li className="text-sm text-muted">No projects yet.</li>}
         </ul>
       </Card>
 
@@ -140,4 +275,3 @@ export function StatsPage() {
     </div>
   )
 }
-
