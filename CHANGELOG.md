@@ -236,3 +236,23 @@
 - Service-worker-native background sync (current retry loop runs in app runtime).
 - Supabase schema migration/policy alignment for synchronized tables.
 - PWA production asset polish (placeholder icons still pending replacement).
+
+## Commit 10 - Service Worker Sync Route, Supabase Schema, and PWA Icon Refresh
+### What changed
+- Enhanced `vite-plugin-pwa` Workbox configuration with runtime background sync routing for Supabase POST requests.
+- Added `supabase/schema.sql` with:
+  - core table definitions aligned to current app data model,
+  - ownership-aware RLS policies,
+  - basic constraints/checks for synced entities.
+- Replaced placeholder PWA icon assets (`192`, `512`, `maskable-512`) with branded DayOS production-style PNG icons.
+
+### What this fixed
+- Closes the service-worker sync retry gap by adding Workbox background queueing for Supabase write calls.
+- Closes schema-alignment gap by providing a concrete SQL schema/policy baseline for Supabase setup.
+- Closes icon placeholder gap by replacing temporary icon assets.
+
+### What is still left
+- Optional final polish only:
+  - chunk size/code-splitting optimization (bundle warning >500kB),
+  - deeper Supabase production hardening (migration/version workflow and strict policy refinements),
+  - UI fine-tuning pass.
