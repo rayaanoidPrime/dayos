@@ -321,3 +321,17 @@
 
 ### What is still left
 - Minor final polish and bundle optimization only.
+
+## Commit 15 - You Page Dashboard Styling
+### What changed
+- Redesigned `You` page to match inspiration profile/dashboard patterns:
+  - weekly consistency mini-bar chart,
+  - compact semester-goals metrics panels,
+  - preserved account auth/sync controls in the same visual style.
+- Kept all existing profile actions (Google sign-in/out, queue flush, exam mode, sunday planning) intact.
+
+### What this fixed
+- Replaces a plain settings-form feel with a purpose-built profile dashboard aligned to inspiration references.
+
+### What is still left
+- Minor final polish and bundle optimization only.

@@ -22,6 +22,7 @@ export function YouPage() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncStatus, setSyncStatus] = useState('')
+  const consistency = [70, 84, 58, 92, 96, 61, 47]
 
   const saveSundayPlan = async () => {
     const weekStartDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -71,6 +72,18 @@ export function YouPage() {
       <Card title="You">
         {!hasSupabaseConfig && <p className="text-xs text-warning">Supabase env vars are missing in this build.</p>}
         <p className="mb-2 text-xs text-muted">Account: {sessionEmail ?? 'Not signed in'}</p>
+        <div className="mb-3 rounded-input border border-border bg-bg/40 p-3">
+          <p className="text-xs uppercase tracking-[0.08em] text-muted">Weekly Consistency</p>
+          <div className="mt-2 flex h-20 items-end gap-1">
+            {consistency.map((value) => (
+              <div
+                key={value}
+                className="flex-1 rounded-t bg-primary/85"
+                style={{ height: `${value}%` }}
+              />
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -114,6 +127,27 @@ export function YouPage() {
             Flush queue now
           </button>
           {syncStatus && <p className="mt-2 text-xs text-muted">{syncStatus}</p>}
+        </div>
+      </Card>
+
+      <Card title="Semester Goals">
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between rounded-input border border-border bg-bg/30 px-3 py-2">
+            <span>Deep work / week</span>
+            <span className="text-muted">25h</span>
+          </div>
+          <div className="flex items-center justify-between rounded-input border border-border bg-bg/30 px-3 py-2">
+            <span>Workout volume trend</span>
+            <span className="text-muted">+12%</span>
+          </div>
+          <div className="flex items-center justify-between rounded-input border border-border bg-bg/30 px-3 py-2">
+            <span>Thesis progress</span>
+            <span className="text-muted">62%</span>
+          </div>
+          <div className="flex items-center justify-between rounded-input border border-border bg-bg/30 px-3 py-2">
+            <span>Papers read</span>
+            <span className="text-muted">15 / 50</span>
+          </div>
         </div>
       </Card>
 
