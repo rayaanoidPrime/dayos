@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
+import { AppBootstrap } from './components/AppBootstrap'
 import { AppShell } from './components/AppShell'
 import { ResearchPage } from './pages/ResearchPage'
 import { SchedulePage } from './pages/SchedulePage'
@@ -22,6 +23,11 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
-  return <RouterProvider router={router} />
+  return (
+    <>
+      <AppBootstrap />
+      <RouterProvider router={router} />
+    </>
+  )
 }
 

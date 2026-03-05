@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Card } from '../components/Card'
 import { db, upsertSundayPlan } from '../lib/db'
-import { getSessionEmail, hasSupabaseConfig, sendMagicLink } from '../lib/supabase'
+import { getSessionEmail, hasSupabaseConfig, sendMagicLink, signOutSession } from '../lib/supabase'
 import { flushSyncQueue } from '../lib/sync'
 import { useUIStore } from '../store/uiStore'
 
@@ -77,6 +77,17 @@ export function SettingsPage() {
             }}
           >
             Send link
+          </button>
+          <button
+            type="button"
+            className="h-12 rounded-full border border-border px-4 text-xs font-semibold"
+            onClick={async () => {
+              const result = await signOutSession()
+              setAuthStatus(result.error ? `Sign out error: ${result.error}` : 'Signed out.')
+              await refreshSyncInfo()
+            }}
+          >
+            Sign out
           </button>
         </div>
         {authStatus && <p className="mt-2 text-xs text-muted">{authStatus}</p>}

@@ -170,3 +170,27 @@
 - Schema alignment and server-side validation for all synced tables in Supabase.
 - Additional module depth and analytics polish (workout/study/research/journal stats expansion).
 - Production-ready PWA icons/assets and final UI/UX polish.
+
+## Commit 7 - Auth Hardening and Automatic Sync Loop
+### What changed
+- Hardened Supabase auth client config (`detectSessionInUrl`, persistent session, auto token refresh).
+- Added auth redirect consumption utility to process magic-link/code return URLs and clean URL state.
+- Added explicit sign-out helper and Settings UI action for session termination/recovery.
+- Added sync safeguards:
+  - table allowlist validation before remote writes,
+  - payload shape guard to reject invalid sync items.
+- Added automatic sync loop startup with periodic flush + online-event-triggered flush.
+- Added bootstrap initialization layer to run auth redirect handling and auto-sync lifecycle at app startup.
+
+### What this fixed
+- Closes key auth/session hardening gaps (redirect/session recovery and sign-out flow).
+- Moves sync behavior from manual-only to automatic retry/online-aware operation.
+- Reduces risk of invalid/unexpected table writes to Supabase via queue validation checks.
+
+### What is still left
+- Full service-worker-managed background sync (current retry loop runs in app runtime, not dedicated SW background sync).
+- Supabase server schema alignment/migrations and end-to-end validation policies for all tables.
+- Stats depth: module-level weekly analytics/trends/heatmap polish.
+- Research analytics: per-project completion metrics surfaced in Stats.
+- Sunday review workflow expansion and richer weekly retrospective summary.
+- Production-ready PWA icon/asset replacements and final UX polish pass.
