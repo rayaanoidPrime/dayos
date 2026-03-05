@@ -54,9 +54,16 @@ export function SettingsPage() {
     const authSub = supabase?.auth.onAuthStateChange(async () => {
       await refreshSyncInfo()
     })
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshSyncInfo()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       authSub?.data.subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
 

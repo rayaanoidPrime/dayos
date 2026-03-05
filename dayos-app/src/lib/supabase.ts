@@ -57,9 +57,23 @@ export async function consumeAuthRedirect(): Promise<{ error: string | null }> {
     if (error) {
       return { error: error.message }
     }
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return { error: null }
   }
 
-  window.history.replaceState({}, document.title, window.location.pathname)
+  // For hash-based magic-link redirects, let Supabase parse/store tokens first.
+  // Clearing hash too early can drop the session before it is persisted.
+  if (hash.includes('access_token=') || hash.includes('refresh_token=')) {
+    const startedAt = Date.now()
+    while (Date.now() - startedAt < 2500) {
+      const { data } = await supabase.auth.getSession()
+      if (data.session) {
+        break
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100))
+    }
+  }
+
   return { error: null }
 }
 

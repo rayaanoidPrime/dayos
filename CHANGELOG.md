@@ -274,3 +274,15 @@
 
 ### What is still left
 - Final polish/optimization only (bundle splitting + minor UX refinements).
+
+## Commit 12 - Redirect Session Parsing Fix
+### What changed
+- Fixed magic-link redirect consumption so hash-based auth tokens are not cleared before Supabase persists session.
+- Added short session-detection wait window during hash-token redirects.
+- Added Settings visibility-based session refresh to avoid stale “Not signed in” UI after tab switches.
+
+### What this fixed
+- Resolves cases where Supabase shows sign-in events but app UI still displays “Not signed in”.
+
+### What is still left
+- Final optimization/polish only (bundle splitting + minor UX refinements).
