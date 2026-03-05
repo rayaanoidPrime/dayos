@@ -1,10 +1,11 @@
 import { db } from './db'
-import { supabase } from './supabase'
+import { getSessionUserId, supabase } from './supabase'
 
 type SyncResult = {
   processed: number
   failed: number
   reason?: string
+  lastError?: string
 }
 
 const allowedTables = new Set([
@@ -26,6 +27,92 @@ function canSyncItem(table: string, payload: unknown): boolean {
   return true
 }
 
+const tableMap: Record<string, string> = {
+  workouts: 'workouts',
+  meals: 'meals',
+  studyBlocks: 'study_blocks',
+  scratchNotes: 'scratch_notes',
+  sundayPlans: 'sunday_plans',
+  examModeConfig: 'exam_mode_config',
+}
+
+function mapPayload(table: string, payload: Record<string, unknown>, userId: string): Record<string, unknown> {
+  switch (table) {
+    case 'workouts':
+      return {
+        id: payload.id,
+        date: payload.date,
+        session_type: payload.sessionType,
+        exercises: payload.exercises,
+        duration_mins: payload.durationMins,
+        notes: payload.notes,
+        completed: payload.completed,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    case 'meals':
+      return {
+        id: payload.id,
+        date: payload.date,
+        name: payload.name,
+        portion_label: payload.portionLabel,
+        protein_g: payload.proteinG,
+        fats_g: payload.fatsG,
+        carbs_g: payload.carbsG,
+        calories: payload.calories,
+        source: payload.source,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    case 'studyBlocks':
+      return {
+        id: payload.id,
+        date: payload.date,
+        subject: payload.subject,
+        topic: payload.topic,
+        target_mins: payload.targetMins,
+        pomodoros_done: payload.pomodorosDone,
+        completed: payload.completed,
+        paused_at: payload.pausedAt,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    case 'scratchNotes':
+      return {
+        id: payload.id,
+        content: payload.content,
+        pinned: payload.pinned,
+        promoted_to: payload.promotedTo,
+        created_at: payload.createdAt,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    case 'sundayPlans':
+      return {
+        id: payload.id,
+        week_start_date: payload.weekStartDate,
+        workout_intentions: payload.workoutIntentions,
+        study_intentions: payload.studyIntentions,
+        research_intentions: payload.researchIntentions,
+        weekly_goal: payload.weeklyGoal,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    case 'examModeConfig':
+      return {
+        id: payload.id,
+        active: payload.active,
+        exam_title: payload.examTitle,
+        exam_date: payload.examDate || null,
+        hidden_modules: payload.hiddenModules,
+        updated_at: payload.updatedAt,
+        user_id: userId,
+      }
+    default:
+      return { ...payload, user_id: userId }
+  }
+}
+
 export async function flushSyncQueue(): Promise<SyncResult> {
   if (!supabase) {
     return {
@@ -35,9 +122,19 @@ export async function flushSyncQueue(): Promise<SyncResult> {
     }
   }
 
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      processed: 0,
+      failed: 0,
+      reason: 'Not signed in.',
+    }
+  }
+
   const pending = await db.syncQueue.orderBy('updatedAt').toArray()
   let processed = 0
   let failed = 0
+  let lastError: string | undefined
 
   for (const item of pending) {
     try {
@@ -46,16 +143,20 @@ export async function flushSyncQueue(): Promise<SyncResult> {
         continue
       }
 
+      const remoteTable = tableMap[item.table] ?? item.table
       if (item.operation === 'upsert') {
-        const { error } = await supabase.from(item.table).upsert(item.payload as never)
+        const mapped = mapPayload(item.table, item.payload as Record<string, unknown>, userId)
+        const { error } = await supabase.from(remoteTable).upsert(mapped as never)
         if (error) {
           failed += 1
+          lastError = error.message
           continue
         }
       } else {
-        const { error } = await supabase.from(item.table).delete().eq('id', item.recordId)
+        const { error } = await supabase.from(remoteTable).delete().eq('id', item.recordId).eq('user_id', userId)
         if (error) {
           failed += 1
+          lastError = error.message
           continue
         }
       }
@@ -66,10 +167,11 @@ export async function flushSyncQueue(): Promise<SyncResult> {
       processed += 1
     } catch {
       failed += 1
+      lastError = 'Unexpected sync error'
     }
   }
 
-  return { processed, failed }
+  return { processed, failed, lastError }
 }
 
 export function startAutoSync(options?: { intervalMs?: number; onSync?: (result: SyncResult) => void }): () => void {

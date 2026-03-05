@@ -255,4 +255,22 @@
 - Optional final polish only:
   - chunk size/code-splitting optimization (bundle warning >500kB),
   - deeper Supabase production hardening (migration/version workflow and strict policy refinements),
-  - UI fine-tuning pass.
+- UI fine-tuning pass.
+
+## Commit 11 - Magic-Link Session and Sync Queue Fixes
+### What changed
+- Updated magic-link sign-in to pass `emailRedirectTo: window.location.origin` for consistent local callback behavior.
+- Added session user-id helper for authenticated sync payload ownership.
+- Fixed sync queue remote mapping:
+  - local table keys now map to Supabase snake_case tables (`studyBlocks -> study_blocks`, etc.),
+  - local camelCase payload fields now map to Supabase snake_case columns,
+  - `user_id` is attached for RLS-compatible upserts/deletes.
+- Added live Settings auth subscription so session display updates immediately after sign-in/sign-out.
+- Improved sync flush status messaging with last remote error detail.
+
+### What this fixed
+- Fixes “magic link clicked but still shows not signed in” by stabilizing redirect behavior and reactive session UI updates.
+- Fixes queue flush failures caused by table/field mismatches and missing `user_id` under RLS.
+
+### What is still left
+- Final polish/optimization only (bundle splitting + minor UX refinements).

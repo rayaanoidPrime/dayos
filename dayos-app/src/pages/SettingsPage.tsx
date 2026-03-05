@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Card } from '../components/Card'
 import { db, upsertSundayPlan } from '../lib/db'
-import { getSessionEmail, hasSupabaseConfig, sendMagicLink, signOutSession } from '../lib/supabase'
+import { getSessionEmail, hasSupabaseConfig, sendMagicLink, signOutSession, supabase } from '../lib/supabase'
 import { flushSyncQueue } from '../lib/sync'
 import { useUIStore } from '../store/uiStore'
 
@@ -50,6 +50,14 @@ export function SettingsPage() {
 
   useEffect(() => {
     void refreshSyncInfo()
+
+    const authSub = supabase?.auth.onAuthStateChange(async () => {
+      await refreshSyncInfo()
+    })
+
+    return () => {
+      authSub?.data.subscription.unsubscribe()
+    }
   }, [])
 
   return (
@@ -101,7 +109,8 @@ export function SettingsPage() {
               if (result.reason) {
                 setSyncStatus(result.reason)
               } else {
-                setSyncStatus(`Synced ${result.processed} item(s), failed ${result.failed}.`)
+                const suffix = result.lastError ? ` Last error: ${result.lastError}` : ''
+                setSyncStatus(`Synced ${result.processed} item(s), failed ${result.failed}.${suffix}`)
               }
               await refreshSyncInfo()
             }}

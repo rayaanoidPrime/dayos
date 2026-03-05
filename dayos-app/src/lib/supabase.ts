@@ -20,7 +20,12 @@ export async function sendMagicLink(email: string): Promise<{ error: string | nu
     return { error: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' }
   }
 
-  const { error } = await supabase.auth.signInWithOtp({ email })
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: window.location.origin,
+    },
+  })
   return { error: error?.message ?? null }
 }
 
@@ -64,4 +69,12 @@ export async function signOutSession(): Promise<{ error: string | null }> {
   }
   const { error } = await supabase.auth.signOut()
   return { error: error?.message ?? null }
+}
+
+export async function getSessionUserId(): Promise<string | null> {
+  if (!supabase) {
+    return null
+  }
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user?.id ?? null
 }
