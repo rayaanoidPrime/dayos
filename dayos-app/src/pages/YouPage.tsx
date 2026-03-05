@@ -1,42 +1,136 @@
-import { format, startOfWeek } from 'date-fns'
+﻿import { format, startOfWeek } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { db, upsertSundayPlan } from '../lib/db'
+import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
 import { flushSyncQueue } from '../lib/sync'
 import { getSessionEmail, hasSupabaseConfig, signInWithGoogle, signOutSession, supabase } from '../lib/supabase'
+import { useStudyStore } from '../store/studyStore'
+import { cardKeys, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
+import { useWorkoutStore } from '../store/workoutStore'
+
+function weekBounds(offsetWeeks: number) {
+  const start = startOfWeek(new Date(), { weekStartsOn: 1 })
+  start.setDate(start.getDate() + offsetWeeks * 7)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  return {
+    start: format(start, 'yyyy-MM-dd'),
+    end: format(end, 'yyyy-MM-dd'),
+  }
+}
 
 export function YouPage() {
   const examMode = useUIStore((state) => state.examMode)
   const setExamMode = useUIStore((state) => state.setExamMode)
+  const sundayPlan = useUIStore((state) => state.sundayPlan)
   const setSundayPlan = useUIStore((state) => state.setSundayPlan)
+
+  const completionByDate = useTodayStore((state) => state.completionByDate)
+  const studyByDate = useStudyStore((state) => state.byDate)
+  const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
 
   const [examTitle, setExamTitle] = useState(examMode.examTitle)
   const [examDate, setExamDate] = useState(examMode.examDate)
-  const [workoutIntentions, setWorkoutIntentions] = useState('PPL + 1 cardio session')
-  const [studyIntentions, setStudyIntentions] = useState('Finish ME256 module 4')
-  const [researchIntentions, setResearchIntentions] = useState('Complete literature review draft')
-  const [weeklyGoal, setWeeklyGoal] = useState('Ship consistent deep work blocks.')
-  const [gpaTarget, setGpaTarget] = useState('3.85')
-  const [deepWorkTarget, setDeepWorkTarget] = useState('25h')
-  const [benchTarget, setBenchTarget] = useState('100kg')
-  const [papersTarget, setPapersTarget] = useState('15/50')
+  const [workoutIntentions, setWorkoutIntentions] = useState(sundayPlan?.workoutIntentions ?? '')
+  const [studyIntentions, setStudyIntentions] = useState(sundayPlan?.studyIntentions ?? '')
+  const [researchIntentions, setResearchIntentions] = useState(sundayPlan?.researchIntentions ?? '')
+  const [weeklyGoal, setWeeklyGoal] = useState(sundayPlan?.weeklyGoal ?? '')
   const [planStatus, setPlanStatus] = useState('')
   const [authStatus, setAuthStatus] = useState('')
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncStatus, setSyncStatus] = useState('')
 
-  const consistency = [40, 65, 30, 85, 95, 20, 10]
+  const dashboard = useMemo(() => {
+    const { start: currentStart, end: currentEnd } = weekBounds(0)
+    const { start: previousStart, end: previousEnd } = weekBounds(-1)
 
-  const heatmapData = useMemo(
-    () => [
-      ['high', 'high', 'active', 'high', 'active', '', ''],
-      ['high', 'active', 'high', 'high', 'active', '', ''],
-      ['high', 'active', 'high', 'high', 'high', 'active', ''],
-      ['high', 'high', 'active', 'high', 'active', 'active', ''],
-    ],
-    [],
-  )
+    const inRange = (date: string, start: string, end: string) => date >= start && date <= end
+
+    const weeklyStudyBlocks = Object.entries(studyByDate)
+      .filter(([date]) => inRange(date, currentStart, currentEnd))
+      .flatMap(([, day]) => day.blocks)
+    const weeklyFocusMins = weeklyStudyBlocks.reduce((sum, block) => sum + block.pomodorosDone * 25, 0)
+
+    const workoutVolume = (start: string, end: string) =>
+      Object.entries(workoutLogsByDate)
+        .filter(([date]) => inRange(date, start, end))
+        .reduce(
+          (total, [, log]) =>
+            total +
+            log.exercises.reduce(
+              (exerciseTotal, exercise) =>
+                exerciseTotal +
+                exercise.loggedSets.reduce(
+                  (setTotal, setItem) => setTotal + (setItem.weightKg ?? exercise.weightKg ?? 0) * setItem.reps,
+                  0,
+                ),
+              0,
+            ),
+          0,
+        )
+
+    const currentVolume = workoutVolume(currentStart, currentEnd)
+    const previousVolume = workoutVolume(previousStart, previousEnd)
+    const workoutDeltaPct =
+      previousVolume > 0 ? Math.round(((currentVolume - previousVolume) / previousVolume) * 100) : currentVolume > 0 ? 100 : 0
+
+    const weeklyConsistencyBars = Array.from({ length: 7 }).map((_, index) => {
+      const date = new Date(`${currentStart}T00:00:00`)
+      date.setDate(date.getDate() + index)
+      const key = format(date, 'yyyy-MM-dd')
+      const map = completionByDate[key] ?? {}
+      const completed = cardKeys.reduce((count, card) => count + (map[card] ? 1 : 0), 0)
+      return Math.max(8, Math.round((completed / cardKeys.length) * 100))
+    })
+
+    const streakStatuses = computeDayStatuses(
+      Array.from({ length: 60 }).map((_, index) => {
+        const date = new Date()
+        date.setDate(date.getDate() - (59 - index))
+        const key = format(date, 'yyyy-MM-dd')
+        const map = completionByDate[key] ?? {}
+        return { date: key, hadChecklistActivity: cardKeys.every((card) => Boolean(map[card])) }
+      }),
+    )
+
+    let bestStreak = 0
+    let running = 0
+    for (const item of streakStatuses) {
+      if (item.status === 'complete') {
+        running += 1
+        bestStreak = Math.max(bestStreak, running)
+      } else {
+        running = 0
+      }
+    }
+
+    const heatmapData = Array.from({ length: 28 }).map((_, index) => {
+      const date = new Date()
+      date.setDate(date.getDate() - (27 - index))
+      const key = format(date, 'yyyy-MM-dd')
+      const map = completionByDate[key] ?? {}
+      const completed = cardKeys.reduce((count, card) => count + (map[card] ? 1 : 0), 0)
+      if (completed === cardKeys.length) {
+        return 'high'
+      }
+      if (completed > 0) {
+        return 'active'
+      }
+      return ''
+    })
+
+    return {
+      weeklyFocusMins,
+      currentVolume,
+      workoutDeltaPct,
+      weeklyConsistencyBars,
+      currentStreak: computeCurrentStreak(streakStatuses),
+      bestStreak,
+      heatmapData,
+    }
+  }, [completionByDate, studyByDate, workoutLogsByDate])
 
   const saveSundayPlan = async () => {
     const weekStartDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -89,12 +183,12 @@ export function YouPage() {
       </header>
 
       <section className="mt-3">
-        <span className="page-label">Deep Work (Weekly)</span>
+        <span className="page-label">Weekly Consistency</span>
         <div className="mt-2 flex h-20 items-end gap-1 rounded-input border border-border bg-surface p-3">
-          {consistency.map((value, index) => (
+          {dashboard.weeklyConsistencyBars.map((value, index) => (
             <div
               key={`${value}-${index}`}
-              className={`flex-1 rounded-t ${index === 4 ? 'bg-white' : 'bg-white/45'}`}
+              className={`flex-1 rounded-t ${index === dashboard.weeklyConsistencyBars.length - 1 ? 'bg-white' : 'bg-white/45'}`}
               style={{ height: `${value}%` }}
             />
           ))}
@@ -103,75 +197,49 @@ export function YouPage() {
 
       <section className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-input border border-border bg-surface p-3">
-          <span className="page-label">Thesis Progress</span>
+          <span className="page-label">Study Focus</span>
           <p className="text-lg text-text">
-            12,450 <span className="text-xs text-tertiary">words</span>
+            {dashboard.weeklyFocusMins} <span className="text-xs text-tertiary">mins this week</span>
           </p>
           <div className="mt-2 h-1 overflow-hidden rounded bg-white/15">
-            <div className="h-full rounded bg-white" style={{ width: '62%' }} />
+            <div className="h-full rounded bg-white" style={{ width: `${Math.min(100, Math.round((dashboard.weeklyFocusMins / 600) * 100))}%` }} />
           </div>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Target: 20,000</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Target: 600 mins</p>
         </div>
         <div className="rounded-input border border-border bg-surface p-3">
           <span className="page-label">Workout Volume</span>
           <p className="text-lg text-text">
-            +12% <span className="text-xs text-tertiary">vs LW</span>
+            {dashboard.currentVolume} <span className="text-xs text-tertiary">kg-reps</span>
           </p>
-          <svg viewBox="0 0 100 40" className="mt-2 h-5 w-full stroke-white/75 stroke-[2]">
-            <polyline points="0,35 20,30 40,38 60,25 80,15 100,5" />
-          </svg>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Trend: Increasing</p>
+          <p className="mt-2 text-xs text-tertiary">
+            {dashboard.workoutDeltaPct >= 0 ? '+' : ''}
+            {dashboard.workoutDeltaPct}% vs last week
+          </p>
         </div>
       </section>
 
       <section className="mt-6">
         <h2 className="mb-3 flex items-center justify-between text-[20px] font-normal text-text">
-          Consistency <span className="text-[13px] text-tertiary">Year to Date</span>
+          Consistency <span className="text-[13px] text-tertiary">Last 4 Weeks</span>
         </h2>
         <div className="rounded-input border border-border bg-surface p-4">
           <div className="grid grid-cols-7 gap-1.5">
-            {heatmapData.map((week, weekIndex) =>
-              week.map((day, dayIndex) => (
-                <div
-                  key={`${weekIndex}-${dayIndex}`}
-                  className={`aspect-square rounded-[2px] ${
-                    day === 'high' ? 'bg-white/60' : day === 'active' ? 'bg-white/20' : 'bg-white/5'
-                  }`}
-                />
-              )),
-            )}
+            {dashboard.heatmapData.map((day, index) => (
+              <div
+                key={`${day}-${index}`}
+                className={`aspect-square rounded-[2px] ${
+                  day === 'high' ? 'bg-white/60' : day === 'active' ? 'bg-white/20' : 'bg-white/5'
+                }`}
+              />
+            ))}
           </div>
           <div className="mt-4 flex items-center justify-between text-[13px] text-muted">
             <span>Current Streak</span>
-            <span className="text-white">12 Days</span>
+            <span className="text-white">{dashboard.currentStreak} Days</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-[13px] text-muted">
             <span>Best Streak</span>
-            <span className="text-white">24 Days</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="mb-3 flex items-center justify-between text-[20px] font-normal text-text">
-          Semester Goals <span className="text-[13px] text-tertiary">Editable</span>
-        </h2>
-        <div className="space-y-1 border-y border-border">
-          <div className="flex items-center justify-between py-3">
-            <input className="w-[70%] border-none bg-transparent text-[15px] text-text outline-none" value={gpaTarget} onChange={(event) => setGpaTarget(event.target.value)} />
-            <span className="text-[13px] text-tertiary">GPA Target</span>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <input className="w-[70%] border-none bg-transparent text-[15px] text-text outline-none" value={deepWorkTarget} onChange={(event) => setDeepWorkTarget(event.target.value)} />
-            <span className="text-[13px] text-tertiary">Deep Work / Week</span>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <input className="w-[70%] border-none bg-transparent text-[15px] text-text outline-none" value={benchTarget} onChange={(event) => setBenchTarget(event.target.value)} />
-            <span className="text-[13px] text-tertiary">Bench Press Max</span>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <input className="w-[70%] border-none bg-transparent text-[15px] text-text outline-none" value={papersTarget} onChange={(event) => setPapersTarget(event.target.value)} />
-            <span className="text-[13px] text-tertiary">Papers Read</span>
+            <span className="text-white">{dashboard.bestStreak} Days</span>
           </div>
         </div>
       </section>

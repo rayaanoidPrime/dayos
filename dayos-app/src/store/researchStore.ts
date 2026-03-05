@@ -37,6 +37,7 @@ type ResearchState = {
   projects: ResearchProject[]
   tasks: ResearchTask[]
   papers: PaperEntry[]
+  ensurePrimaryProject: () => string
   addTask: (task: Omit<ResearchTask, 'id'>) => void
   moveTask: (taskId: string, status: TaskStatus) => void
   addPaper: (paper: Omit<PaperEntry, 'id' | 'dateAdded'>) => void
@@ -50,23 +51,27 @@ const randomId = () =>
 export const useResearchStore = create<ResearchState>()(
   persist(
     (set, get) => ({
-      projects: [
-        {
-          id: 'mtech-thesis',
-          name: 'M.Tech Thesis',
-          description: 'Vision-based manipulation with lightweight policy learning.',
-          colorTag: '#3A86FF',
-        },
-      ],
-      tasks: [
-        {
-          id: randomId(),
-          title: 'Draft experiment section',
-          projectId: 'mtech-thesis',
-          status: 'in_progress',
-        },
-      ],
+      projects: [],
+      tasks: [],
       papers: [],
+      ensurePrimaryProject: () => {
+        const existing = get().projects[0]
+        if (existing) {
+          return existing.id
+        }
+
+        const project: ResearchProject = {
+          id: randomId(),
+          name: 'General Research',
+          description: 'User-created research workspace.',
+          colorTag: '#3A86FF',
+        }
+
+        set((state) => ({
+          projects: [project, ...state.projects],
+        }))
+        return project.id
+      },
       addTask: (task) =>
         set((state) => ({
           tasks: [...state.tasks, { ...task, id: randomId() }],

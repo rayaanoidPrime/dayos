@@ -38,26 +38,7 @@ const randomId = () =>
 export const useScheduleStore = create<ScheduleState>()(
   persist(
     (set) => ({
-      recurringClasses: [
-        {
-          id: randomId(),
-          course: 'ME256',
-          dayOfWeek: 1,
-          startTime: '09:00',
-          endTime: '10:00',
-          room: 'LHC-201',
-          mode: 'offline',
-        },
-        {
-          id: randomId(),
-          course: 'Thesis Lab',
-          dayOfWeek: 3,
-          startTime: '14:00',
-          endTime: '16:00',
-          room: 'Lab-A',
-          mode: 'offline',
-        },
-      ],
+      recurringClasses: [],
       events: [],
       addRecurringClass: (payload) =>
         set((state) => ({

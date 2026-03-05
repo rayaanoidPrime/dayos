@@ -38,17 +38,6 @@ const tabs = [
     ),
   },
   {
-    to: '/stats',
-    label: 'Stats',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-[1.5]">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
-  {
     to: '/you',
     label: 'You',
     icon: (
@@ -63,14 +52,14 @@ const tabs = [
 export function AppShell() {
   return (
     <div className="fade-in mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden border-x border-border bg-bg/80 backdrop-blur-[20px] md:my-4 md:max-w-[900px] md:min-h-[calc(100vh-2rem)] md:rounded-[40px] md:border">
-      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-10 md:pb-12 md:pt-10">
+      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-10 md:pb-32 md:pt-10">
         <Outlet />
       </main>
 
       <ScratchpadFab />
 
-      <nav className="absolute bottom-6 left-4 right-4 h-[60px] rounded-full border border-border bg-[rgba(20,16,14,0.85)] px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px] md:hidden">
-        <ul className="grid h-full grid-cols-5">
+      <nav className="absolute bottom-6 left-1/2 h-[60px] w-[calc(100%-2rem)] max-w-[400px] -translate-x-1/2 rounded-full border border-border bg-[rgba(20,16,14,0.85)] px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px]">
+        <ul className="grid h-full grid-cols-4">
           {tabs.map((tab) => (
             <li key={tab.to}>
               <NavLink

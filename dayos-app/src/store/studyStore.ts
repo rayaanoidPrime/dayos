@@ -37,7 +37,7 @@ export const useStudyStore = create<StudyState>()(
           byDate: {
             ...state.byDate,
             [date]: {
-              blocks: [{ id: randomId(), subject: 'ME256', topic: 'Controls revision', targetMins: 50, pomodorosDone: 0 }],
+              blocks: [],
             },
           },
         }))

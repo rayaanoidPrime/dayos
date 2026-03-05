@@ -456,3 +456,25 @@
 
 ### What is still left
 - If you want pixel-level micro-adjustments (spacing/line-height/icon offsets), we can do a final visual tune pass on top of this structure.
+
+## Commit 22 - Remove Stats Route, Remove Seeded Dummy Data, Fix Desktop Nav
+### What changed
+- Removed the Stats page from routing/navigation entirely:
+  - deleted `StatsPage`,
+  - removed `/stats` route and bottom-nav tab.
+- Fixed desktop navigation visibility:
+  - bottom nav is now visible on desktop and centered with fixed max width (no longer hidden behind breakpoint rules).
+- Removed seeded dummy records from stores:
+  - `scheduleStore`: no preloaded classes/events,
+  - `studyStore`: no auto-seeded default study block,
+  - `researchStore`: no preloaded project/task/paper data.
+- Added `ensurePrimaryProject` in `researchStore` and wired `ResearchPage` to auto-create a primary project only when the user first adds task/paper.
+- Removed Semester Goals section from `You` page and replaced static/dummy dashboard numbers with live derived metrics (study/workout/consistency).
+
+### What this fixed
+- Aligns the app with your request to remove Stats and remove hardcoded demo seed content.
+- Restores bottom navigation visibility on desktop.
+- Keeps Research task/paper creation functional after removing pre-seeded project data.
+
+### What is still left
+- Today nutrition section conversion to pure consumed-items list + quick JSON/CSV import control (next commit in this sequence).

@@ -35,6 +35,7 @@ export function ResearchPage() {
   const projects = useResearchStore((state) => state.projects)
   const tasks = useResearchStore((state) => state.tasks)
   const papers = useResearchStore((state) => state.papers)
+  const ensurePrimaryProject = useResearchStore((state) => state.ensurePrimaryProject)
   const addTask = useResearchStore((state) => state.addTask)
   const moveTask = useResearchStore((state) => state.moveTask)
   const addPaper = useResearchStore((state) => state.addPaper)
@@ -68,12 +69,13 @@ export function ResearchPage() {
   )
 
   const onAddTask = () => {
-    if (!taskTitle.trim() || !activeProject) {
+    if (!taskTitle.trim()) {
       return
     }
+    const projectId = activeProject?.id ?? ensurePrimaryProject()
     addTask({
       title: taskTitle.trim(),
-      projectId: activeProject.id,
+      projectId,
       status: 'todo',
     })
     setTaskTitle('')
@@ -101,12 +103,13 @@ export function ResearchPage() {
   }
 
   const onAddPaper = () => {
-    if (!activeProject || !paperTitle.trim()) {
+    if (!paperTitle.trim()) {
       return
     }
+    const projectId = activeProject?.id ?? ensurePrimaryProject()
 
     addPaper({
-      projectId: activeProject.id,
+      projectId,
       arxivId: paperArxivId.trim(),
       title: paperTitle.trim(),
       authors: paperAuthors.trim(),
