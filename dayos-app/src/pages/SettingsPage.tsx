@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Card } from '../components/Card'
-import { upsertSundayPlan } from '../lib/db'
+import { db, upsertSundayPlan } from '../lib/db'
+import { getSessionEmail, hasSupabaseConfig, sendMagicLink } from '../lib/supabase'
+import { flushSyncQueue } from '../lib/sync'
 import { useUIStore } from '../store/uiStore'
 
 export function SettingsPage() {
@@ -16,6 +18,11 @@ export function SettingsPage() {
   const [researchIntentions, setResearchIntentions] = useState('Complete literature review draft')
   const [weeklyGoal, setWeeklyGoal] = useState('Ship consistent deep work blocks.')
   const [planStatus, setPlanStatus] = useState('')
+  const [email, setEmail] = useState('')
+  const [authStatus, setAuthStatus] = useState('')
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  const [queueCount, setQueueCount] = useState(0)
+  const [syncStatus, setSyncStatus] = useState('')
 
   const saveSundayPlan = async () => {
     const weekStartDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -35,8 +42,65 @@ export function SettingsPage() {
     setPlanStatus(`Saved plan for week starting ${weekStartDate}.`)
   }
 
+  const refreshSyncInfo = async () => {
+    const [count, activeEmail] = await Promise.all([db.syncQueue.count(), getSessionEmail()])
+    setQueueCount(count)
+    setSessionEmail(activeEmail)
+  }
+
+  useEffect(() => {
+    void refreshSyncInfo()
+  }, [])
+
   return (
     <div className="space-y-3">
+      <Card title="Supabase Auth & Sync">
+        {!hasSupabaseConfig && <p className="text-xs text-warning">Supabase env vars are missing in this build.</p>}
+        <p className="mb-2 text-xs text-muted">Session: {sessionEmail ?? 'Not signed in'}</p>
+        <div className="flex gap-2">
+          <input
+            className="h-12 flex-1 rounded-input border border-border px-3"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <button
+            type="button"
+            className="h-12 rounded-full border border-border px-4 text-xs font-semibold"
+            onClick={async () => {
+              if (!email.trim()) {
+                return
+              }
+              const result = await sendMagicLink(email.trim())
+              setAuthStatus(result.error ? `Auth error: ${result.error}` : 'Magic link sent. Check your inbox.')
+            }}
+          >
+            Send link
+          </button>
+        </div>
+        {authStatus && <p className="mt-2 text-xs text-muted">{authStatus}</p>}
+        <div className="mt-3 rounded-input border border-border p-3">
+          <p className="text-xs text-text">Pending sync queue: {queueCount}</p>
+          <button
+            type="button"
+            className="mt-2 h-10 w-full rounded-full bg-primary px-4 text-xs font-semibold text-white"
+            onClick={async () => {
+              const result = await flushSyncQueue()
+              if (result.reason) {
+                setSyncStatus(result.reason)
+              } else {
+                setSyncStatus(`Synced ${result.processed} item(s), failed ${result.failed}.`)
+              }
+              await refreshSyncInfo()
+            }}
+          >
+            Flush queue now
+          </button>
+          {syncStatus && <p className="mt-2 text-xs text-muted">{syncStatus}</p>}
+        </div>
+      </Card>
+
       <Card title="Exam Mode">
         <div className="space-y-2">
           <input

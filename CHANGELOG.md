@@ -144,3 +144,29 @@
 - Sunday review workflow expansion and tighter cross-module weekly recap.
 - Additional Stats visualizations (module trends/heatmaps).
 - Production-ready PWA icons/assets and final UX polish pass.
+
+## Commit 6 - Supabase Auth and Queue Sync Controls
+### What changed
+- Added `lib/supabase.ts`:
+  - env-driven Supabase client initialization,
+  - magic-link send helper,
+  - session email fetch helper.
+- Added `lib/sync.ts`:
+  - queue flush routine that processes local sync queue items to Supabase (`upsert` / `delete`),
+  - processed/failed counts and configuration fallback messaging.
+- Upgraded Settings screen with a new “Supabase Auth & Sync” card:
+  - magic-link email input flow,
+  - session status visibility,
+  - sync queue count visibility,
+  - manual queue flush trigger with result messaging.
+
+### What this fixed
+- Delivers a concrete auth/session entry point and operational visibility for local-to-remote sync lag.
+- Replaces pure placeholder sync behavior with an executable queue flush path.
+
+### What is still left
+- End-to-end production auth/session UX hardening (redirect handling, sign-out flow, and recovery states).
+- Automated/background sync worker behavior (service-worker flush retries and connectivity-aware scheduling).
+- Schema alignment and server-side validation for all synced tables in Supabase.
+- Additional module depth and analytics polish (workout/study/research/journal stats expansion).
+- Production-ready PWA icons/assets and final UI/UX polish.
