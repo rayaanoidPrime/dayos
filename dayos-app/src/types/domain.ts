@@ -21,6 +21,7 @@ export type WorkoutLog = {
 
 export type Meal = {
   id?: string
+  date: string
   name: string
   portionLabel: string
   proteinG: number

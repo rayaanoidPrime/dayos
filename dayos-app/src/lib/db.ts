@@ -29,6 +29,15 @@ export class DayOSDatabase extends Dexie {
       examModeConfig: 'id, active, examDate, updatedAt',
       syncQueue: 'id, table, recordId, operation, updatedAt',
     })
+    this.version(2).stores({
+      workouts: 'id, date, sessionType, updatedAt',
+      meals: 'id, date, name, source, updatedAt',
+      studyBlocks: 'id, date, subject, updatedAt',
+      scratchNotes: 'id, pinned, createdAt, updatedAt',
+      sundayPlans: 'id, weekStartDate, updatedAt',
+      examModeConfig: 'id, active, examDate, updatedAt',
+      syncQueue: 'id, table, recordId, operation, updatedAt',
+    })
   }
 }
 
@@ -53,6 +62,24 @@ export async function upsertScratchNote(content: string): Promise<ScratchNote> {
   await db.scratchNotes.put(note)
   await queueRecordSync('scratchNotes', note.id!, 'upsert', note)
   return note
+}
+
+export async function saveImportedMeals(
+  meals: Array<Omit<Meal, 'id' | 'updatedAt'>>,
+): Promise<Array<Meal>> {
+  const now = new Date().toISOString()
+  const hydrated = meals.map((meal) => ({
+    ...meal,
+    id: randomId(),
+    updatedAt: now,
+  }))
+
+  await db.meals.bulkPut(hydrated)
+  for (const meal of hydrated) {
+    await queueRecordSync('meals', meal.id!, 'upsert', meal)
+  }
+
+  return hydrated
 }
 
 export async function queueRecordSync(
