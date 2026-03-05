@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { db } from '../lib/db'
+import { db, saveImportedMeals } from '../lib/db'
 import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
 import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
@@ -34,13 +34,105 @@ type WorkoutRow = {
   reps: number
 }
 
+type QuickImportMeal = {
+  name: string
+  portionLabel: string
+  calories: number
+  proteinG: number
+  fatsG: number
+  carbsG: number
+}
+
+const toNumber = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const splitCsvLine = (line: string): string[] => {
+  const values: string[] = []
+  let current = ''
+  let quoted = false
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    if (char === '"') {
+      quoted = !quoted
+      continue
+    }
+    if (char === ',' && !quoted) {
+      values.push(current.trim())
+      current = ''
+      continue
+    }
+    current += char
+  }
+  values.push(current.trim())
+  return values
+}
+
+function parseQuickMealInput(raw: string): QuickImportMeal[] {
+  const input = raw.trim()
+  if (!input) {
+    return []
+  }
+
+  if (input.startsWith('{') || input.startsWith('[')) {
+    const parsed = JSON.parse(input) as unknown
+    const items = Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === 'object' && parsed && 'meals' in parsed
+        ? (parsed as { meals: unknown[] }).meals
+        : []
+
+    return items
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => ({
+        name: String(item.name ?? item.item ?? item.food ?? '').trim(),
+        portionLabel: String(item.portionLabel ?? item.portion ?? item.qty ?? '').trim(),
+        calories: toNumber(item.calories ?? item.kcal),
+        proteinG: toNumber(item.proteinG ?? item.protein ?? item.protein_g),
+        fatsG: toNumber(item.fatsG ?? item.fats ?? item.fat ?? item.fat_g),
+        carbsG: toNumber(item.carbsG ?? item.carbs ?? item.carbohydrates ?? item.carb_g),
+      }))
+      .filter((item) => item.name.length > 0)
+  }
+
+  const lines = input
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (lines.length < 2) {
+    return []
+  }
+
+  const headers = splitCsvLine(lines[0]).map((header) => header.toLowerCase())
+
+  return lines
+    .slice(1)
+    .map((line) => splitCsvLine(line))
+    .map((columns) => {
+      const row = Object.fromEntries(headers.map((header, index) => [header, columns[index] ?? '']))
+      return {
+        name: String(row.name ?? row.item ?? row.food ?? '').trim(),
+        portionLabel: String(row.portionlabel ?? row.portion ?? row.qty ?? '').trim(),
+        calories: toNumber(row.calories ?? row.kcal),
+        proteinG: toNumber(row.proteing ?? row.protein ?? row.protein_g),
+        fatsG: toNumber(row.fatsg ?? row.fats ?? row.fat ?? row.fat_g),
+        carbsG: toNumber(row.carbsg ?? row.carbs ?? row.carbohydrates ?? row.carb_g),
+      }
+    })
+    .filter((item) => item.name.length > 0)
+}
+
 export function TodayPage() {
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), [])
   const weekday = useMemo(() => format(new Date(), 'EEEE'), [])
   const subtitle = useMemo(() => `${format(new Date(), 'MMMM d, yyyy')} - Week ${format(new Date(), 'II')}`, [])
 
   const [todayMeals, setTodayMeals] = useState<Meal[]>([])
-  const [mealChecks, setMealChecks] = useState<Record<string, boolean>>({})
+  const [isImportOpen, setImportOpen] = useState(false)
+  const [importInput, setImportInput] = useState('')
+  const [importStatus, setImportStatus] = useState('')
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [isRunningTimer, setIsRunningTimer] = useState(false)
   const [remainingSecs, setRemainingSecs] = useState(23 * 60 + 45)
@@ -88,16 +180,6 @@ export function TodayPage() {
   useEffect(() => {
     void db.meals.where('date').equals(today).toArray().then((rows) => {
       setTodayMeals(rows)
-      setMealChecks((prev) => {
-        const next = { ...prev }
-        for (const meal of rows) {
-          const key = meal.id ?? `${meal.name}-${meal.updatedAt}`
-          if (!(key in next)) {
-            next[key] = false
-          }
-        }
-        return next
-      })
     })
   }, [today])
 
@@ -165,7 +247,7 @@ export function TodayPage() {
         key: 'study',
         title: primaryStudy ? `${primaryStudy.subject}${primaryStudy.topic ? `: ${primaryStudy.topic}` : ''}` : 'No study block planned',
         meta: primaryStudy
-          ? `Deep Work • ${primaryStudy.targetMins}m • ${primaryStudy.pomodorosDone} pomodoros`
+          ? `Deep Work â€¢ ${primaryStudy.targetMins}m â€¢ ${primaryStudy.pomodorosDone} pomodoros`
           : 'Add a study block in Study module',
       },
       {
@@ -173,21 +255,21 @@ export function TodayPage() {
         title: primaryResearchTask?.title ?? 'No research task yet',
         meta: primaryResearchTask
           ? primaryResearchTask.status === 'in_progress'
-            ? 'Research • In Progress'
+            ? 'Research â€¢ In Progress'
             : primaryResearchTask.status === 'done'
-              ? 'Research • Done'
-              : 'Research • To Do'
+              ? 'Research â€¢ Done'
+              : 'Research â€¢ To Do'
           : 'Create a research task in Research tab',
       },
       {
         key: 'journal',
         title: journalEntry?.topPriorityTomorrow || nextEvent?.title || 'No admin/journal priority yet',
         meta: journalEntry?.topPriorityTomorrow
-          ? 'Journal • Tomorrow Priority'
+          ? 'Journal â€¢ Tomorrow Priority'
           : nextEvent
-            ? `${nextEvent.type.toUpperCase()} • ${nextEvent.date} ${nextEvent.time}`
+            ? `${nextEvent.type.toUpperCase()} â€¢ ${nextEvent.date} ${nextEvent.time}`
             : todayClass
-              ? `${todayClass.course} • ${todayClass.startTime}-${todayClass.endTime}`
+              ? `${todayClass.course} â€¢ ${todayClass.startTime}-${todayClass.endTime}`
               : 'Add a class/event in Plan tab',
       },
       {
@@ -195,8 +277,8 @@ export function TodayPage() {
         title: `Workout: ${toSessionTitle(sessionType)}`,
         meta:
           workoutLog?.sessionType === 'rest'
-            ? 'Recovery • Rest day'
-            : `Health • ${workoutLog?.exercises.length ?? 0} exercises`,
+            ? 'Recovery â€¢ Rest day'
+            : `Health â€¢ ${workoutLog?.exercises.length ?? 0} exercises`,
       },
     ],
     [journalEntry, nextEvent, primaryResearchTask, primaryStudy, sessionType, todayClass, workoutLog?.exercises.length, workoutLog?.sessionType],
@@ -298,6 +380,37 @@ export function TodayPage() {
 
     const loggedWeight = row.load === '-' ? undefined : Number(row.load.replace('kg', ''))
     upsertLoggedSet(today, row.exerciseIndex, row.setIndex, reps, Number.isFinite(loggedWeight) ? loggedWeight : undefined)
+  }
+
+  const onQuickImportMeals = async () => {
+    try {
+      const parsed = parseQuickMealInput(importInput)
+      if (parsed.length === 0) {
+        setImportStatus('No valid rows found. Use JSON array or CSV with meal fields.')
+        return
+      }
+
+      await saveImportedMeals(
+        parsed.map((row) => ({
+          date: today,
+          name: row.name,
+          portionLabel: row.portionLabel,
+          calories: row.calories,
+          proteinG: row.proteinG,
+          fatsG: row.fatsG,
+          carbsG: row.carbsG,
+          source: 'import' as const,
+        })),
+      )
+
+      const refreshed = await db.meals.where('date').equals(today).toArray()
+      setTodayMeals(refreshed)
+      setImportStatus(`Imported ${parsed.length} meal${parsed.length === 1 ? '' : 's'}.`)
+      setImportInput('')
+      setImportOpen(false)
+    } catch {
+      setImportStatus('Could not parse input. Check JSON/CSV formatting.')
+    }
   }
 
   return (
@@ -480,32 +593,59 @@ export function TodayPage() {
             <h2 className="mb-4 mt-8 flex items-center justify-between text-[20px] font-normal text-white">
               Nutrition <span className="text-[13px] text-tertiary">{totalCalories} / {nutritionTargets.calories} kcal</span>
             </h2>
-            <div className="flex flex-col">
-              {todayMeals.map((meal) => {
-                const mealKey = meal.id ?? `${meal.name}-${meal.updatedAt}`
-                const checked = mealChecks[mealKey] ?? false
-                return (
-                  <div
-                    key={mealKey}
-                    className={`flex cursor-pointer items-start gap-3 border-b border-border py-3 ${checked ? 'checked' : ''}`}
-                    onClick={() => setMealChecks((state) => ({ ...state, [mealKey]: !checked }))}
-                  >
-                    <div
-                      className={`mt-0.5 h-5 w-5 shrink-0 rounded-[4px] border ${
-                        checked ? 'border-white bg-white' : 'border-tertiary bg-transparent'
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <div className={`mb-1 text-[15px] ${checked ? 'text-tertiary line-through' : 'text-white'}`}>{meal.name}</div>
-                      <div className="text-[11px] text-tertiary">
-                        {meal.calories} kcal • {meal.proteinG}g P • {meal.portionLabel || 'portion n/a'}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-              {todayMeals.length === 0 && <p className="text-sm text-tertiary">No meals logged yet.</p>}
+            <div className="mb-3 flex items-center gap-2">
+              <button type="button" className="inspo-button-ghost h-9 px-4" onClick={() => setImportOpen((open) => !open)}>
+                Quick Import JSON/CSV
+              </button>
+              {importStatus && <span className="text-xs text-tertiary">{importStatus}</span>}
             </div>
+
+            {isImportOpen && (
+              <div className="mb-3 rounded-input border border-border bg-surface p-3">
+                <textarea
+                  className="inspo-textarea h-24 w-full"
+                  value={importInput}
+                  onChange={(event) => setImportInput(event.target.value)}
+                  placeholder={'JSON: [{\"name\":\"Oats\",\"portionLabel\":\"80g\",\"calories\":300,\"proteinG\":12,\"fatsG\":5,\"carbsG\":50}] or CSV: name,portion,calories,protein,fats,carbs'}
+                />
+                <div className="mt-2 flex gap-2">
+                  <button type="button" className="inspo-button-primary h-9 px-4" onClick={() => void onQuickImportMeals()}>
+                    Import meals
+                  </button>
+                  <button type="button" className="inspo-button-ghost h-9 px-4" onClick={() => setImportOpen(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th className="border-b border-border pb-2 text-left font-normal text-tertiary">Item</th>
+                  <th className="border-b border-border pb-2 text-left font-normal text-tertiary">Portion</th>
+                  <th className="border-b border-border pb-2 text-right font-normal text-tertiary">kcal</th>
+                  <th className="border-b border-border pb-2 text-right font-normal text-tertiary">P</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todayMeals.map((meal) => (
+                  <tr key={meal.id ?? `${meal.name}-${meal.updatedAt}`}>
+                    <td className="border-b border-white/5 py-2.5 text-muted">{meal.name}</td>
+                    <td className="border-b border-white/5 py-2.5 text-muted">{meal.portionLabel || '-'}</td>
+                    <td className="border-b border-white/5 py-2.5 text-right text-muted">{meal.calories}</td>
+                    <td className="border-b border-white/5 py-2.5 text-right text-muted">{meal.proteinG}</td>
+                  </tr>
+                ))}
+                {todayMeals.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-3 text-sm text-tertiary">
+                      No meals logged yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </section>
         </div>
       </div>

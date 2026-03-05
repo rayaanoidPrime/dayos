@@ -1,117 +1,111 @@
-# DayOS
+﻿# DayOS
 
-DayOS is an offline-first PWA for daily execution across fitness, nutrition, study, research, and journaling.
+DayOS is an offline-first PWA for daily execution across workout, nutrition, study, research, and journaling.
 
-## Tech Stack
+## Stack
 - React 19 + TypeScript + Vite
-- Zustand (local state)
-- Dexie (IndexedDB local persistence)
-- Supabase (auth + remote sync, optional but recommended)
+- Zustand for local app state
+- Dexie (IndexedDB) for offline persistence
+- Supabase (optional) for auth + queue sync
 - Workbox via `vite-plugin-pwa`
 - Vitest + Testing Library
 
-## Features Implemented
-- Today checklist with per-card completion + collapse persistence
-- Workout logging (planned vs actual sets, rest-day notes)
-- Nutrition markdown import (preview, deselect rows, templates, water tracking)
-- Study blocks with Pomodoro runtime + background pause handling
-- Schedule weekly grid + deadlines/events
-- Research Kanban + paper log + arXiv autofill attempt
-- Journal prompted/free modes + Sunday review flow
-- Stats: streaks, missed-day heatmap, weekly summaries, research completion rates
-- Scratchpad FAB with autosave, pin/promote, searchable archive
-- Supabase magic-link auth hooks + sync queue flush/auto-retry
-- PWA manifest + service worker background sync route
+## Current App Surface
+Routes:
+- `/` Today dashboard (mobile + desktop layouts)
+- `/schedule` Plan
+- `/research` Research
+- `/you` Profile, auth, sync, exam mode, sunday planning
+
+Removed:
+- Stats page is no longer part of the app.
+
+## Key Features
+- Today dashboard matching design inspo structure
+  - Timer + session context
+  - Daily task checklist linked to persisted completion state
+  - Workout log table with editable reps (persisted)
+  - Research lane preview (linked to paper log)
+  - Consistency heatmap + streak metrics
+  - Nutrition intake table + quick JSON/CSV meal import
+- Plan page with day selector and event management
+- Research page with paper log, filters, autofill, and task board
+- You page with real data metrics, Google sign-in/out, sync controls, exam mode, sunday planning
+- Scratchpad FAB with autosave, pin/promote workflow
+- Offline-first queue sync model with optional Supabase backend
 
 ## Prerequisites
 - Node.js 20+
 - npm 10+
 
-Check:
-```bash
-node -v
-npm -v
-```
-
-## 1) Install
-From project root:
+## Install
 ```bash
 cd dayos-app
 npm install
 ```
 
-## 2) Environment Setup
+## Environment (Optional but recommended)
 Create `dayos-app/.env.local`:
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```
 
-Notes:
-- App still runs without these values, but auth/sync will stay local-only.
-- For full functionality, set both variables.
+Without these values, the app still runs locally, but cloud auth/sync stays disabled.
 
-## 3) Supabase Setup (Recommended)
-1. Create a Supabase project.
-2. Open SQL Editor in Supabase.
-3. Run:
+## Supabase Setup
+Run schema in Supabase SQL editor:
 - [`dayos-app/supabase/schema.sql`](./supabase/schema.sql)
 
-This creates tables + RLS policies expected by the app.
-
-## 4) Run Development Server
+## Run
 ```bash
 npm run dev
 ```
-Open the URL shown by Vite (usually `http://localhost:5173`).
 
-## 5) Build and Preview
+## Build
 ```bash
 npm run build
 npm run preview
 ```
 
-## 6) Run Tests
+## Test
 ```bash
 npm run test
-```
-
-Watch mode:
-```bash
 npm run test:watch
 ```
 
-Lint:
+## Lint
 ```bash
 npm run lint
 ```
 
 ## Auth + Sync Usage
-- Go to **You** tab.
-- Click **Sign in with Google**.
-- After signing in, session state is shown in **You**.
-- Use **Flush queue now** to manually push pending local writes.
-- Auto-sync also runs on interval and when network comes back.
+1. Open **You** tab.
+2. Click **Sign in with Google**.
+3. Use **Flush queue now** to manually push pending writes.
+4. Auto-sync also retries on interval + reconnect.
 
-## PWA Notes
-- App is installable (manifest + icons included).
-- Service worker is generated during build.
-- Workbox runtime caching includes a background sync route for Supabase POST writes.
+## Nutrition Quick Import Format (Today page)
+Use **Quick Import JSON/CSV** in the Nutrition section.
 
-## Troubleshooting
-- `Supabase env vars are missing` in You:
-  - Check `.env.local` keys and restart dev server.
-- Sync queue not clearing:
-  - Ensure you are signed in and schema SQL was applied in Supabase.
-  - Check browser network tab for 401/403 (usually RLS/auth mismatch).
-- Build warns about large bundle size:
-  - This is currently expected; code-splitting optimization is pending polish.
+JSON example:
+```json
+[
+  { "name": "Oats", "portionLabel": "80g", "calories": 300, "proteinG": 12, "fatsG": 5, "carbsG": 50 }
+]
+```
 
-## Project Scripts
+CSV example:
+```csv
+name,portion,calories,protein,fats,carbs
+Oats,80g,300,12,5,50
+```
+
+## Scripts
 From `dayos-app`:
-- `npm run dev` - start dev server
-- `npm run build` - type-check + production build
-- `npm run preview` - preview production build
-- `npm run test` - run tests with coverage
-- `npm run test:watch` - watch tests
-- `npm run lint` - lint code
+- `npm run dev`
+- `npm run build`
+- `npm run preview`
+- `npm run test`
+- `npm run test:watch`
+- `npm run lint`

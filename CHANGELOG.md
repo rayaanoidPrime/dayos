@@ -478,3 +478,24 @@
 
 ### What is still left
 - Today nutrition section conversion to pure consumed-items list + quick JSON/CSV import control (next commit in this sequence).
+
+## Commit 23 - Today Nutrition Table + Quick JSON/CSV Import + README Refresh
+### What changed
+- Converted Today Nutrition section from task-style rows to a consumed-items intake table, matching the Workout Log interaction pattern.
+- Added quick meal import workflow in Today Nutrition:
+  - accepts JSON array/object payloads,
+  - accepts CSV with common nutrition headers,
+  - persists imported entries through IndexedDB (`saveImportedMeals`) and refreshes same-day table data.
+- Rewrote `README.md` to reflect current app state:
+  - updated route surface (`Today`, `Plan`, `Research`, `You`),
+  - removed Stats references,
+  - documented quick JSON/CSV nutrition import format with examples,
+  - refreshed setup/run/auth instructions for the current implementation.
+
+### What this fixed
+- Aligns Today nutrition with your requested non-task log presentation.
+- Restores a fast structured meal input path (JSON/CSV) directly from Today.
+- Removes stale docs and makes onboarding instructions match the current product state.
+
+### What is still left
+- No functional blockers from this request set.
