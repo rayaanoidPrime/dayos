@@ -62,14 +62,14 @@ const tabs = [
 
 export function AppShell() {
   return (
-    <div className="fade-in mx-auto flex min-h-screen w-full max-w-[390px] flex-col overflow-hidden border border-border/80 bg-bg/80 backdrop-blur-[20px] md:my-4 md:min-h-[844px] md:rounded-[40px]">
-      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="fade-in mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden border-x border-border bg-bg/80 backdrop-blur-[20px] md:my-4 md:max-w-[900px] md:min-h-[calc(100vh-2rem)] md:rounded-[40px] md:border">
+      <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-10 md:pb-12 md:pt-10">
         <Outlet />
       </main>
 
       <ScratchpadFab />
 
-      <nav className="absolute bottom-6 left-4 right-4 h-[60px] rounded-full border border-border bg-[rgba(20,16,14,0.85)] px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px]">
+      <nav className="absolute bottom-6 left-4 right-4 h-[60px] rounded-full border border-border bg-[rgba(20,16,14,0.85)] px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px] md:hidden">
         <ul className="grid h-full grid-cols-5">
           {tabs.map((tab) => (
             <li key={tab.to}>

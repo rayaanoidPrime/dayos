@@ -23,6 +23,7 @@ type WorkoutState = {
   logsByDate: Record<string, WorkoutDayLog>
   ensureDayLog: (date: string, sessionType: SessionType) => void
   logActualSet: (date: string, exerciseIndex: number, reps: number, weightKg?: number) => void
+  upsertLoggedSet: (date: string, exerciseIndex: number, setIndex: number, reps: number, weightKg?: number) => void
   setRestDayNote: (date: string, note: string) => void
 }
 
@@ -80,6 +81,35 @@ export const useWorkoutStore = create<WorkoutState>()(
               ? { ...exercise, loggedSets: [...exercise.loggedSets, { reps, weightKg }] }
               : exercise,
           )
+          return {
+            logsByDate: {
+              ...state.logsByDate,
+              [date]: { ...dayLog, exercises },
+            },
+          }
+        }),
+      upsertLoggedSet: (date, exerciseIndex, setIndex, reps, weightKg) =>
+        set((state) => {
+          const dayLog = state.logsByDate[date]
+          if (!dayLog || !dayLog.exercises[exerciseIndex] || setIndex < 0) {
+            return state
+          }
+
+          const exercises = dayLog.exercises.map((exercise, index) => {
+            if (index !== exerciseIndex) {
+              return exercise
+            }
+
+            const nextLoggedSets = [...exercise.loggedSets]
+            if (setIndex >= nextLoggedSets.length) {
+              nextLoggedSets.push({ reps, weightKg })
+            } else {
+              nextLoggedSets[setIndex] = { reps, weightKg }
+            }
+
+            return { ...exercise, loggedSets: nextLoggedSets }
+          })
+
           return {
             logsByDate: {
               ...state.logsByDate,

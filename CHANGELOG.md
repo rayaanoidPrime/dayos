@@ -417,3 +417,17 @@
 
 ### What is still left
 - Final parity polish pass for fine-grained spacing/typography consistency across all route details.
+
+## Commit 20 - Today Dashboard Infrastructure Prep
+### What changed
+- Updated app shell breakpoints to support the provided Today reference behavior:
+  - mobile-first narrow shell,
+  - desktop-expanded shell width (`~900px`) with hidden bottom nav.
+- Added `upsertLoggedSet` to `workoutStore` for deterministic set-row editing (set-index aware) instead of append-only updates.
+
+### What this fixed
+- Removes a blocker for implementing the exact desktop/phone Today layout from your HTML while preserving functional workout logging.
+- Enables backend-connected workout table inputs that can edit specific set rows directly.
+
+### What is still left
+- Full Today page replacement with the exact provided structure and real data wiring for all sections.
