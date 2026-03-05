@@ -216,3 +216,23 @@
 - Service-worker-native background sync (current auto sync loop is app-runtime based).
 - Supabase schema migration/policy alignment for all synchronized tables.
 - PWA asset polish (replace placeholder icons with production-grade set).
+
+## Commit 9 - Sunday Review Workflow Expansion
+### What changed
+- Extended journal entry model with Sunday retrospective fields:
+  - `weeklyHighlight`
+  - `weeklyImprove`
+- Added Sunday-only review block in Today Journal card (prompted mode) with:
+  - weekly reflection prompts,
+  - read-only 7-day completed-task recap across all mandatory cards.
+- Added Stats “Sunday Review Archive” section.
+- Expanded journal search indexing/rendering to include Sunday review content.
+
+### What this fixed
+- Closes the dedicated Sunday review prompt/archive gap called out in remaining items.
+- Adds a concrete weekly retrospective loop with module-completion recap context.
+
+### What is still left
+- Service-worker-native background sync (current retry loop runs in app runtime).
+- Supabase schema migration/policy alignment for synchronized tables.
+- PWA production asset polish (placeholder icons still pending replacement).

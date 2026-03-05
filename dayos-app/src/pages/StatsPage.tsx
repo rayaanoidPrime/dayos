@@ -86,9 +86,20 @@ export function StatsPage() {
       return entries
     }
     return entries.filter((entry) =>
-      [entry.highlight, entry.blockers, entry.topPriorityTomorrow, entry.freeText].join(' ').toLowerCase().includes(query),
+      [entry.highlight, entry.blockers, entry.topPriorityTomorrow, entry.freeText, entry.weeklyHighlight, entry.weeklyImprove]
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
     )
   }, [entriesByDate, journalSearch])
+
+  const sundayReviews = useMemo(
+    () =>
+      Object.values(entriesByDate)
+        .filter((entry) => new Date(`${entry.date}T00:00:00`).getDay() === 0 && (entry.weeklyHighlight || entry.weeklyImprove))
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [entriesByDate],
+  )
 
   const weeklySummary = useMemo(() => {
     const { weekStartKey, weekEndKey } = getCurrentWeekBounds()
@@ -248,6 +259,19 @@ export function StatsPage() {
         </ul>
       </Card>
 
+      <Card title="Sunday Review Archive">
+        <ul className="space-y-2">
+          {sundayReviews.map((entry) => (
+            <li key={entry.date} className="rounded-input border border-border p-2 text-sm text-text">
+              <p className="font-semibold">{entry.date}</p>
+              <p className="text-xs text-muted">Highlight: {entry.weeklyHighlight || '-'}</p>
+              <p className="text-xs text-muted">Would do differently: {entry.weeklyImprove || '-'}</p>
+            </li>
+          ))}
+          {sundayReviews.length === 0 && <li className="text-sm text-muted">No Sunday reviews recorded yet.</li>}
+        </ul>
+      </Card>
+
       <Card title="Journal Search">
         <input
           className="h-10 w-full rounded-input border border-border px-3 text-sm"
@@ -264,6 +288,12 @@ export function StatsPage() {
                   <p className="text-xs text-muted">Highlight: {entry.highlight || '-'}</p>
                   <p className="text-xs text-muted">Blockers: {entry.blockers || '-'}</p>
                   <p className="text-xs text-muted">Priority: {entry.topPriorityTomorrow || '-'}</p>
+                  {(entry.weeklyHighlight || entry.weeklyImprove) && (
+                    <>
+                      <p className="text-xs text-muted">Weekly highlight: {entry.weeklyHighlight || '-'}</p>
+                      <p className="text-xs text-muted">Weekly improve: {entry.weeklyImprove || '-'}</p>
+                    </>
+                  )}
                 </>
               )}
               <p className="mt-1 text-xs text-muted">{entry.freeText || '-'}</p>

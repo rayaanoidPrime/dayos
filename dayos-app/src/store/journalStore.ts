@@ -10,6 +10,8 @@ export type JournalEntry = {
   blockers: string
   topPriorityTomorrow: string
   freeText: string
+  weeklyHighlight: string
+  weeklyImprove: string
   updatedAt: string
 }
 
@@ -26,6 +28,8 @@ const createDefaultEntry = (date: string): JournalEntry => ({
   blockers: '',
   topPriorityTomorrow: '',
   freeText: '',
+  weeklyHighlight: '',
+  weeklyImprove: '',
   updatedAt: new Date().toISOString(),
 })
 

@@ -90,6 +90,7 @@ export function TodayPage() {
 
   const waterMl = waterMlByDate[today] ?? 0
   const journalEntry = entriesByDate[today]
+  const isSunday = new Date(`${today}T00:00:00`).getDay() === 0
   const dayIndexForSplit = (new Date().getDay() + 6) % 7
   const sessionType = weeklySplit[dayIndexForSplit] ?? 'rest'
   const workoutLog = logsByDate[today]
@@ -201,6 +202,37 @@ export function TodayPage() {
     collapsed: collapsed[key] ?? false,
     onToggleCollapse: () => setCardCollapsed(today, key, !(collapsed[key] ?? false)),
   })
+
+  const weeklyReviewSummary = useMemo(() => {
+    const summary = {
+      daysComplete: 0,
+      cardCompletions: {
+        workout: 0,
+        nutrition: 0,
+        study: 0,
+        research: 0,
+        journal: 0,
+      },
+    }
+
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date(`${today}T00:00:00`)
+      date.setDate(date.getDate() - i)
+      const key = format(date, 'yyyy-MM-dd')
+      const map = completionByDate[key] ?? {}
+      const allDone = cardKeys.every((card) => Boolean(map[card]))
+      if (allDone) {
+        summary.daysComplete += 1
+      }
+      for (const card of cardKeys) {
+        if (map[card]) {
+          summary.cardCompletions[card] += 1
+        }
+      }
+    }
+
+    return summary
+  }, [completionByDate, today])
 
   useEffect(() => {
     ensureDayLog(today, sessionType)
@@ -638,6 +670,32 @@ export function TodayPage() {
                 value={journalEntry?.freeText ?? ''}
                 onChange={(event) => updateEntry(today, { freeText: event.target.value })}
               />
+
+              {isSunday && (
+                <div className="space-y-2 rounded-input border border-border p-3">
+                  <p className="text-xs font-semibold text-text">Sunday Review</p>
+                  <input
+                    className="h-10 w-full rounded-input border border-border px-3 text-sm"
+                    placeholder="Weekly highlight"
+                    value={journalEntry?.weeklyHighlight ?? ''}
+                    onChange={(event) => updateEntry(today, { weeklyHighlight: event.target.value })}
+                  />
+                  <input
+                    className="h-10 w-full rounded-input border border-border px-3 text-sm"
+                    placeholder="What I'd do differently"
+                    value={journalEntry?.weeklyImprove ?? ''}
+                    onChange={(event) => updateEntry(today, { weeklyImprove: event.target.value })}
+                  />
+                  <div className="rounded-input border border-border bg-surface p-2 text-xs text-muted">
+                    <p>Completed days this week: {weeklyReviewSummary.daysComplete}/7</p>
+                    <p>Workout checkmarks: {weeklyReviewSummary.cardCompletions.workout}</p>
+                    <p>Nutrition checkmarks: {weeklyReviewSummary.cardCompletions.nutrition}</p>
+                    <p>Study checkmarks: {weeklyReviewSummary.cardCompletions.study}</p>
+                    <p>Research checkmarks: {weeklyReviewSummary.cardCompletions.research}</p>
+                    <p>Journal checkmarks: {weeklyReviewSummary.cardCompletions.journal}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>
