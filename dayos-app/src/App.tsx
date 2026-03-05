@@ -3,9 +3,9 @@ import { AppBootstrap } from './components/AppBootstrap'
 import { AppShell } from './components/AppShell'
 import { ResearchPage } from './pages/ResearchPage'
 import { SchedulePage } from './pages/SchedulePage'
-import { SettingsPage } from './pages/SettingsPage'
 import { StatsPage } from './pages/StatsPage'
 import { TodayPage } from './pages/TodayPage'
+import { YouPage } from './pages/YouPage'
 
 const router = createBrowserRouter([
   {
@@ -16,7 +16,7 @@ const router = createBrowserRouter([
       { path: 'schedule', element: <SchedulePage /> },
       { path: 'research', element: <ResearchPage /> },
       { path: 'stats', element: <StatsPage /> },
-      { path: 'settings', element: <SettingsPage /> },
+      { path: 'you', element: <YouPage /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

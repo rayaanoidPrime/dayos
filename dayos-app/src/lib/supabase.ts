@@ -15,15 +15,15 @@ export const supabase = hasSupabaseConfig
     })
   : null
 
-export async function sendMagicLink(email: string): Promise<{ error: string | null }> {
+export async function signInWithGoogle(): Promise<{ error: string | null }> {
   if (!supabase) {
     return { error: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' }
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
     options: {
-      emailRedirectTo: window.location.origin,
+      redirectTo: window.location.origin,
     },
   })
   return { error: error?.message ?? null }

@@ -286,3 +286,20 @@
 
 ### What is still left
 - Final optimization/polish only (bundle splitting + minor UX refinements).
+
+## Commit 13 - Google OAuth and You Tab Migration
+### What changed
+- Removed email-based sign-in flow from app UI.
+- Added Google OAuth sign-in helper (`signInWithGoogle`) using Supabase OAuth redirect.
+- Replaced `Settings` route/tab with a `You` route/tab and migrated account/sync/exam/sunday controls there.
+- Added tests for:
+  - bottom nav rendering the `You` tab,
+  - sync payload/table mapping for Supabase remote writes.
+
+### What this fixed
+- Aligns auth UX to OAuth-only (Google) as requested.
+- Reframes profile/account controls under a dedicated `You` section instead of Settings.
+
+### What is still left
+- Design language overhaul based on `design_inspo` references (theme/layout/motion pass).
+- Minor final polish and bundle optimization.

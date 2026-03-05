@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { format, startOfWeek } from 'date-fns'
 import { Card } from '../components/Card'
 import { db, upsertSundayPlan } from '../lib/db'
-import { getSessionEmail, hasSupabaseConfig, sendMagicLink, signOutSession, supabase } from '../lib/supabase'
+import { getSessionEmail, hasSupabaseConfig, signInWithGoogle, signOutSession, supabase } from '../lib/supabase'
 import { flushSyncQueue } from '../lib/sync'
 import { useUIStore } from '../store/uiStore'
 
-export function SettingsPage() {
+export function YouPage() {
   const examMode = useUIStore((state) => state.examMode)
   const setExamMode = useUIStore((state) => state.setExamMode)
   const setSundayPlan = useUIStore((state) => state.setSundayPlan)
@@ -18,7 +18,6 @@ export function SettingsPage() {
   const [researchIntentions, setResearchIntentions] = useState('Complete literature review draft')
   const [weeklyGoal, setWeeklyGoal] = useState('Ship consistent deep work blocks.')
   const [planStatus, setPlanStatus] = useState('')
-  const [email, setEmail] = useState('')
   const [authStatus, setAuthStatus] = useState('')
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
@@ -69,29 +68,19 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-3">
-      <Card title="Supabase Auth & Sync">
+      <Card title="You">
         {!hasSupabaseConfig && <p className="text-xs text-warning">Supabase env vars are missing in this build.</p>}
-        <p className="mb-2 text-xs text-muted">Session: {sessionEmail ?? 'Not signed in'}</p>
-        <div className="flex gap-2">
-          <input
-            className="h-12 flex-1 rounded-input border border-border px-3"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
+        <p className="mb-2 text-xs text-muted">Account: {sessionEmail ?? 'Not signed in'}</p>
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             className="h-12 rounded-full border border-border px-4 text-xs font-semibold"
             onClick={async () => {
-              if (!email.trim()) {
-                return
-              }
-              const result = await sendMagicLink(email.trim())
-              setAuthStatus(result.error ? `Auth error: ${result.error}` : 'Magic link sent. Check your inbox.')
+              const result = await signInWithGoogle()
+              setAuthStatus(result.error ? `Sign in error: ${result.error}` : 'Continue in Google to finish sign-in.')
             }}
           >
-            Send link
+            Sign in with Google
           </button>
           <button
             type="button"
@@ -191,4 +180,3 @@ export function SettingsPage() {
     </div>
   )
 }
-

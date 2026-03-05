@@ -36,23 +36,34 @@ const tableMap: Record<string, string> = {
   examModeConfig: 'exam_mode_config',
 }
 
-function mapPayload(table: string, payload: Record<string, unknown>, userId: string): Record<string, unknown> {
+export function toRemoteSyncItem(
+  table: string,
+  payload: Record<string, unknown>,
+  userId: string,
+): { table: string; payload: Record<string, unknown> } {
+  const remoteTable = tableMap[table] ?? table
+
   switch (table) {
     case 'workouts':
       return {
-        id: payload.id,
-        date: payload.date,
-        session_type: payload.sessionType,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
+          date: payload.date,
+          session_type: payload.sessionType,
         exercises: payload.exercises,
         duration_mins: payload.durationMins,
         notes: payload.notes,
-        completed: payload.completed,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          completed: payload.completed,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     case 'meals':
       return {
-        id: payload.id,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
         date: payload.date,
         name: payload.name,
         portion_label: payload.portionLabel,
@@ -61,12 +72,15 @@ function mapPayload(table: string, payload: Record<string, unknown>, userId: str
         carbs_g: payload.carbsG,
         calories: payload.calories,
         source: payload.source,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     case 'studyBlocks':
       return {
-        id: payload.id,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
         date: payload.date,
         subject: payload.subject,
         topic: payload.topic,
@@ -74,42 +88,52 @@ function mapPayload(table: string, payload: Record<string, unknown>, userId: str
         pomodoros_done: payload.pomodorosDone,
         completed: payload.completed,
         paused_at: payload.pausedAt,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     case 'scratchNotes':
       return {
-        id: payload.id,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
         content: payload.content,
         pinned: payload.pinned,
         promoted_to: payload.promotedTo,
         created_at: payload.createdAt,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     case 'sundayPlans':
       return {
-        id: payload.id,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
         week_start_date: payload.weekStartDate,
         workout_intentions: payload.workoutIntentions,
         study_intentions: payload.studyIntentions,
         research_intentions: payload.researchIntentions,
         weekly_goal: payload.weeklyGoal,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     case 'examModeConfig':
       return {
-        id: payload.id,
+        table: remoteTable,
+        payload: {
+          id: payload.id,
         active: payload.active,
         exam_title: payload.examTitle,
         exam_date: payload.examDate || null,
-        hidden_modules: payload.hiddenModules,
-        updated_at: payload.updatedAt,
-        user_id: userId,
+          hidden_modules: payload.hiddenModules,
+          updated_at: payload.updatedAt,
+          user_id: userId,
+        },
       }
     default:
-      return { ...payload, user_id: userId }
+      return { table: remoteTable, payload: { ...payload, user_id: userId } }
   }
 }
 
@@ -143,17 +167,16 @@ export async function flushSyncQueue(): Promise<SyncResult> {
         continue
       }
 
-      const remoteTable = tableMap[item.table] ?? item.table
+      const remoteItem = toRemoteSyncItem(item.table, item.payload as Record<string, unknown>, userId)
       if (item.operation === 'upsert') {
-        const mapped = mapPayload(item.table, item.payload as Record<string, unknown>, userId)
-        const { error } = await supabase.from(remoteTable).upsert(mapped as never)
+        const { error } = await supabase.from(remoteItem.table).upsert(remoteItem.payload as never)
         if (error) {
           failed += 1
           lastError = error.message
           continue
         }
       } else {
-        const { error } = await supabase.from(remoteTable).delete().eq('id', item.recordId).eq('user_id', userId)
+        const { error } = await supabase.from(remoteItem.table).delete().eq('id', item.recordId).eq('user_id', userId)
         if (error) {
           failed += 1
           lastError = error.message

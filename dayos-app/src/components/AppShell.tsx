@@ -6,7 +6,7 @@ const tabs = [
   { to: '/schedule', label: 'Schedule' },
   { to: '/research', label: 'Research' },
   { to: '/stats', label: 'Stats' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/you', label: 'You' },
 ]
 
 export function AppShell() {
