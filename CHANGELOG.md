@@ -30,3 +30,59 @@
 - Journal prompted/free mode, Sunday review archive, and searchable reflections.
 - Stats dashboards, streak/missed-day tracking, scratchpad search/pin/promote flows.
 - Production-quality PWA assets/icons (current icons are placeholders).
+
+## Commit 2 - Today Interactions, Nutrition Tracking, and Notes/Archive
+### What changed
+- Added per-day persisted Today state (`zustand`): card completion, expand/collapse state, water tracking, and meal templates.
+- Upgraded Today cards with completion rings, collapse chevrons, and day-complete celebration when visible mandatory cards are done.
+- Added nutrition progress UI: calorie + macro tracking against targets, water quick-add controls (`+200ml`, `+500ml`, reset), and template quick-log chips.
+- Implemented markdown import preview list with per-row deselection and “Save selected rows” import flow.
+- Extended meal model/storage with `date` and migrated Dexie to v2 schema for date-indexed meal reads.
+- Improved Scratchpad: draft updates existing note while typing, supports pin/unpin and promote-to-task/journal actions, all queued for sync.
+- Added Stats Notes section with keyword search and metadata (pinned/promoted state).
+- Added Sunday plan persistence to IndexedDB with week-based upsert and Settings flow for saving weekly intentions.
+- Added Stats Sunday Plan Archive view sourced from persisted plans.
+- Expanded DB tests to cover scratch note pin/promote and Sunday plan upsert behavior.
+
+### What this fixed
+- Closes most of the previously missing Today checklist interactions (completion, collapse persistence, and day-complete state).
+- Delivers the previously missing nutrition UX slice (preview deselection, template reuse, water tracking, macro progress).
+- Delivers scratchpad search/pin/promote and Sunday plan archive paths that were still pending.
+
+### What is still left
+- Real Supabase auth/session integration (magic-link) and remote/background sync worker implementation.
+- Workout logging flows: planned vs actual sets input, progressive overload history, and rest-day variant UX.
+- Study/Pomodoro runtime behavior: active timer engine, background pause detection, and local notifications.
+- Timetable completion: full weekly grid polish and tighter deadline integration on Today.
+- Research module completion: richer Kanban interactions, paper metadata quality checks, and robust arXiv online/offline handling.
+- Journal completion: prompted/free mode toggle, Sunday review prompts, and keyword search for journal entries.
+- Stats completion: streak/missed-day dashboards and module-level weekly summaries/visualizations.
+- Production-quality PWA icons/assets (current icons remain placeholders).
+
+## Commit 3 - Schedule and Research Tabs (Functional Baseline)
+### What changed
+- Implemented a persisted `scheduleStore` with recurring classes and calendar events/deadlines.
+- Replaced Schedule placeholder with:
+  - weekly timetable rendering (Mon-Sun grouped classes),
+  - event/deadline creation form (date/time/type),
+  - sorted upcoming events list.
+- Added Today-screen deadline pinning banner for exam/deadline items within the next 7 days.
+- Added Today study card read-only “today’s classes” timeline sourced from the weekly timetable state.
+- Implemented a persisted `researchStore` with projects, Kanban tasks, and paper log entries.
+- Replaced Research placeholder with:
+  - Kanban-lite task columns (To Do / In Progress / Done) and move actions,
+  - paper reading log form,
+  - arXiv metadata autofill attempt via API with graceful fallback to manual entry/offline mode.
+
+### What this fixed
+- Delivers the missing timetable + deadline pinning baseline from the previous “still left” list.
+- Delivers the missing Research Kanban and paper-log baseline, including initial arXiv autofill integration path.
+
+### What is still left
+- Supabase auth/session (magic-link) and robust remote sync worker/retry handling.
+- Workout module depth: planned vs actual set logging UI, progressive overload history, and rest-day variant flow.
+- Study timer runtime: full Pomodoro engine, background pause detection, and local notifications.
+- Research hardening: stronger arXiv parsing/validation, richer project management, and completion-rate stats.
+- Journal completion: prompted mode, free mode toggle, Sunday review prompts, and searchable journal history.
+- Stats completion: streak/missed-day dashboard, weekly module summaries, and trend visualization.
+- PWA polish: production icon set/assets and installability/performance audit pass.

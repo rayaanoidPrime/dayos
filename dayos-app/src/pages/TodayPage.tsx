@@ -5,6 +5,7 @@ import { TodayBanner } from '../components/TodayBanner'
 import { db, saveImportedMeals } from '../lib/db'
 import { parseNutritionMarkdownTable, type ParsedMealRow } from '../lib/nutritionParser'
 import type { Meal } from '../types/domain'
+import { useScheduleStore } from '../store/scheduleStore'
 import { cardKeys, type TodayCardKey, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
 
@@ -29,6 +30,8 @@ export function TodayPage() {
   const waterMlByDate = useTodayStore((state) => state.waterMlByDate)
   const addWater = useTodayStore((state) => state.addWater)
   const resetWater = useTodayStore((state) => state.resetWater)
+  const recurringClasses = useScheduleStore((state) => state.recurringClasses)
+  const events = useScheduleStore((state) => state.events)
 
   const collapsed = collapsedByDate[today] ?? {}
   const complete = completionByDate[today] ?? {}
@@ -63,6 +66,30 @@ export function TodayPage() {
   const waterMl = waterMlByDate[today] ?? 0
 
   const progress = (value: number, goal: number) => (goal <= 0 ? 0 : Math.min(100, Math.round((value / goal) * 100)))
+
+  const todayClasses = useMemo(
+    () =>
+      recurringClasses
+        .filter((item) => item.dayOfWeek === ((new Date().getDay() + 6) % 7) + 1)
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [recurringClasses],
+  )
+
+  const upcomingDeadlines = useMemo(() => {
+    const now = new Date(`${today}T00:00:00`)
+    const nextWeek = new Date(now)
+    nextWeek.setDate(now.getDate() + 7)
+    return events
+      .filter((event) => {
+        if (event.type !== 'deadline' && event.type !== 'exam') {
+          return false
+        }
+        const eventDate = new Date(`${event.date}T00:00:00`)
+        return eventDate >= now && eventDate <= nextWeek
+      })
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 3)
+  }, [events, today])
 
   const togglePreviewRow = (index: number) => {
     setPreviewRows((rows) => rows.map((row, i) => (i === index ? { ...row, selected: !row.selected } : row)))
@@ -152,6 +179,18 @@ export function TodayPage() {
       {allVisibleComplete && (
         <Card title="Day complete!">
           <p className="text-sm text-success">All mandatory cards are checked off for {today}.</p>
+        </Card>
+      )}
+
+      {upcomingDeadlines.length > 0 && (
+        <Card title="Upcoming Deadlines (7 days)">
+          <ul className="space-y-1 text-sm text-text">
+            {upcomingDeadlines.map((event) => (
+              <li key={event.id}>
+                {event.date} {event.time} - {event.title}
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 
@@ -302,6 +341,17 @@ export function TodayPage() {
       {visibleCards.includes('study') && (
         <Card title="Study Sessions" rightLabel="Pomodoro 25/5" {...cardProps('study')}>
           <p className="text-sm text-text">ME256 controls revision - 2 pomodoros complete</p>
+          <div className="mt-2 rounded-input border border-border p-2">
+            <p className="text-xs font-semibold text-text">Today's classes</p>
+            <ul className="mt-1 space-y-1 text-xs text-muted">
+              {todayClasses.map((item) => (
+                <li key={item.id}>
+                  {item.startTime}-{item.endTime} {item.course} ({item.room})
+                </li>
+              ))}
+              {todayClasses.length === 0 && <li>No classes scheduled.</li>}
+            </ul>
+          </div>
         </Card>
       )}
 
