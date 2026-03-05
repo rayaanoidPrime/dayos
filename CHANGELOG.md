@@ -431,3 +431,28 @@
 
 ### What is still left
 - Full Today page replacement with the exact provided structure and real data wiring for all sections.
+
+## Commit 21 - Today Page Rebuilt from Provided HTML (Phone + Desktop)
+### What changed
+- Replaced `TodayPage` layout with a React implementation that mirrors the provided HTML structure:
+  - header area,
+  - timer block,
+  - Today task list,
+  - Workout log table,
+  - Research kanban strip + link,
+  - Consistency heatmap/stats,
+  - Nutrition task list.
+- Added responsive behavior to match both requested breakpoints using the same two-column desktop information architecture.
+- Removed placeholder content and connected each section to live app data:
+  - Today tasks: `todayStore` completion + study/research/journal/workout data,
+  - Workout table: `workoutStore` rows with editable reps persisted via indexed set upserts,
+  - Research cards: `researchStore` papers by status,
+  - Consistency: computed from `completionByDate` history + streak utilities,
+  - Nutrition rows: real meals from IndexedDB (`db.meals` for current date).
+
+### What this fixed
+- Resolves the mismatch on the Today screen by implementing your exact supplied design language and structure.
+- Replaces static/mock task/nutrition/workout/research placeholders with real backend/store-connected data.
+
+### What is still left
+- If you want pixel-level micro-adjustments (spacing/line-height/icon offsets), we can do a final visual tune pass on top of this structure.
