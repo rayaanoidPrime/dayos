@@ -24,33 +24,33 @@ export function Card({
   onToggleComplete,
 }: CardProps) {
   return (
-    <section className="mb-3 rounded-card border border-border bg-surface/65 p-4 shadow-[0_8px_22px_rgba(0,0,0,0.24)] backdrop-blur-md">
+    <section className="mb-3 rounded-card border border-border bg-surface p-4 backdrop-blur-md">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {completeable && (
             <button
               type="button"
               onClick={onToggleComplete}
-              className={`flex h-5 w-5 items-center justify-center rounded-full border text-xs ${
-                completed ? 'border-success bg-success text-white' : 'border-border text-transparent'
+              className={`flex h-5 w-5 items-center justify-center border text-[10px] ${
+                completed ? 'border-white bg-white text-bg' : 'border-tertiary text-transparent'
               }`}
               aria-label={completed ? `Mark ${title} incomplete` : `Mark ${title} complete`}
             >
-              ✓
+              ?
             </button>
           )}
-          <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-text">{title}</h3>
+          <h3 className="text-sm font-normal text-text">{title}</h3>
         </div>
         <div className="flex items-center gap-2">
-          {rightLabel && <span className="text-xs text-muted">{rightLabel}</span>}
+          {rightLabel && <span className="text-xs text-tertiary">{rightLabel}</span>}
           {collapsible && (
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="rounded p-1 text-xs text-muted"
+              className="rounded p-1 text-xs text-tertiary"
               aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
             >
-              {collapsed ? '▾' : '▴'}
+              {collapsed ? '?' : '?'}
             </button>
           )}
         </div>
@@ -59,4 +59,3 @@ export function Card({
     </section>
   )
 }
-

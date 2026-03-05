@@ -348,3 +348,23 @@
 
 ### What is still left
 - Minor final polish and bundle optimization only.
+
+## Commit 17 - Shell and Input Styling Alignment to Design Inspo
+### What changed
+- Refined global visual tokens to match inspo values (`#1a1512` base, white primary text, translucent surface + border).
+- Updated shell chrome to inspo geometry:
+  - narrower centered mobile frame (`390px` max),
+  - rounded glass container,
+  - bottom nav pill with icon + label tabs.
+- Updated shared card component typography and controls to reduce the previous “utility dashboard” look and align with inspo card density/contrast.
+- Restyled scratchpad FAB and both sheets (editor/history) to match inspo floating action behavior and sheet treatment.
+- Added global form-control normalization (`input`, `textarea`, `select`) to fix white backgrounds and ensure consistent dark text-area/input appearance across screens.
+
+### What this fixed
+- Fixes the reported white text-area/input background issue by forcing dark-theme-safe control defaults.
+- Aligns app-wide shell/navigation language much closer to the provided inspo references before route-level refinements.
+
+### What is still left
+- Route-level screen-by-screen alignment:
+  - `Today`, `Plan(Schedule)`, `Research`, `Stats`, and `You` still need exact/inferred layout parity with inspo.
+- Final visual parity pass after route updates.

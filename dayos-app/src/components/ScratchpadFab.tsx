@@ -78,64 +78,67 @@ export function ScratchpadFab() {
           setHistoryOpen(true)
           setEditorOpen(false)
         }}
-        className="fixed bottom-20 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-bg shadow-lg"
+        className="absolute bottom-24 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-white text-2xl text-bg shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
         aria-label="Open scratchpad"
       >
-        ✦
+        <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-[1.75]">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
       </button>
 
       {isEditorOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-border bg-bg p-4">
+        <div className="absolute inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-[22px] border border-border bg-bg/95 p-4 backdrop-blur-xl">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text">Quick Scratchpad</h2>
-              <button type="button" className="text-sm text-muted" onClick={() => setEditorOpen(false)}>
+              <h2 className="text-sm font-normal text-text">Quick Scratchpad</h2>
+              <button type="button" className="text-sm text-tertiary" onClick={() => setEditorOpen(false)}>
                 Close
               </button>
             </div>
             <textarea
-              className="h-36 w-full rounded-input border border-border p-3 outline-none focus:border-primary"
+              className="inspo-textarea h-36 w-full"
               placeholder="Capture thoughts, references, or reminders..."
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
             />
-            <p className="mt-2 text-xs text-muted">Autosaves every 500ms while typing.</p>
+            <p className="mt-2 text-xs text-tertiary">Autosaves every 500ms while typing.</p>
             {hasContent && <p className="text-xs text-success">Draft queued for offline sync.</p>}
           </div>
         </div>
       )}
 
       {isHistoryOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
-          <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border border-border bg-bg p-4">
+        <div className="absolute inset-0 z-30 bg-black/40" role="dialog" aria-modal="true">
+          <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-[22px] border border-border bg-bg/95 p-4 backdrop-blur-xl">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text">Scratch Notes</h2>
-              <button type="button" className="text-sm text-muted" onClick={() => setHistoryOpen(false)}>
+              <h2 className="text-sm font-normal text-text">Scratch Notes</h2>
+              <button type="button" className="text-sm text-tertiary" onClick={() => setHistoryOpen(false)}>
                 Close
               </button>
             </div>
             <ul className="space-y-2">
               {notes.map((note) => (
-                <li key={note.id} className="rounded-card border border-border bg-surface p-3 text-sm text-text">
-                  <p>{note.content}</p>
+                <li key={note.id} className="rounded-card border border-border bg-surface p-3 text-sm text-muted">
+                  <p className="text-text">{note.content}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      className="rounded border border-border px-2 py-0.5 text-xs text-muted"
                       onClick={() => void handlePinToggle(note)}
                     >
                       {note.pinned ? 'Unpin' : 'Pin'}
                     </button>
                     <button
                       type="button"
-                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      className="rounded border border-border px-2 py-0.5 text-xs text-muted"
                       onClick={() => void handlePromote(note, 'task')}
                     >
                       Promote to Task
                     </button>
                     <button
                       type="button"
-                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      className="rounded border border-border px-2 py-0.5 text-xs text-muted"
                       onClick={() => void handlePromote(note, 'journal')}
                     >
                       Promote to Journal
@@ -143,7 +146,7 @@ export function ScratchpadFab() {
                   </div>
                 </li>
               ))}
-              {notes.length === 0 && <li className="text-sm text-muted">No scratch notes yet.</li>}
+              {notes.length === 0 && <li className="text-sm text-tertiary">No scratch notes yet.</li>}
             </ul>
           </div>
         </div>
@@ -151,4 +154,3 @@ export function ScratchpadFab() {
     </>
   )
 }
-

@@ -43,12 +43,12 @@ export function TodayBanner() {
   }, [examMode, today])
 
   return (
-    <section className="mb-4 rounded-card border border-border bg-surface/65 p-4 backdrop-blur-md">
-      <p className="text-sm font-semibold text-text">{format(today, 'EEEE, MMMM d')}</p>
-      <p className="mt-1 text-xs text-muted">Streak: {streak} days</p>
-      <p className="mt-2 text-sm text-text">{line}</p>
+    <section className="mb-4 rounded-card border border-border bg-surface p-4 backdrop-blur-md">
+      <p className="text-sm text-text">{format(today, 'EEEE, MMMM d')}</p>
+      <p className="mt-1 text-xs text-tertiary">Streak: {streak} days</p>
+      <p className="mt-2 text-sm text-muted">{line}</p>
       {examMode.active && (
-        <span className="mt-3 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+        <span className="mt-3 inline-flex rounded-full border border-border bg-surface px-3 py-1 text-xs text-text">
           EXAM MODE {examCountdown ? `- ${examCountdown}` : ''}
         </span>
       )}
