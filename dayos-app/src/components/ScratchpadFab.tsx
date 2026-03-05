@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useState } from 'react'
-import { db, upsertScratchNote } from '../lib/db'
+import { db, promoteScratchNote, setScratchNotePinned, upsertScratchNote } from '../lib/db'
 import type { ScratchNote } from '../types/domain'
 
 export function ScratchpadFab() {
   const [isEditorOpen, setEditorOpen] = useState(false)
   const [isHistoryOpen, setHistoryOpen] = useState(false)
   const [draft, setDraft] = useState('')
+  const [activeNoteId, setActiveNoteId] = useState<string | undefined>(undefined)
   const [notes, setNotes] = useState<ScratchNote[]>([])
+
+  const loadNotes = async () => {
+    const list = await db.scratchNotes
+      .toArray()
+      .then((rows) =>
+        rows.sort((a, b) => {
+          if (a.pinned !== b.pinned) {
+            return a.pinned ? -1 : 1
+          }
+          return b.createdAt.localeCompare(a.createdAt)
+        }),
+      )
+    setNotes(list)
+  }
 
   useEffect(() => {
     if (!isHistoryOpen) {
       return
     }
-
-    void db.scratchNotes
-      .orderBy('createdAt')
-      .reverse()
-      .toArray()
-      .then(setNotes)
+    void loadNotes()
   }, [isHistoryOpen])
 
   const hasContent = draft.trim().length > 0
@@ -30,11 +40,29 @@ export function ScratchpadFab() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      void upsertScratchNote(debouncedDraft.trim())
+      void upsertScratchNote(debouncedDraft.trim(), activeNoteId).then((note) => {
+        setActiveNoteId(note.id)
+      })
     }, 500)
 
     return () => window.clearTimeout(timeoutId)
-  }, [debouncedDraft, isEditorOpen])
+  }, [activeNoteId, debouncedDraft, isEditorOpen])
+
+  const handlePinToggle = async (note: ScratchNote) => {
+    if (!note.id) {
+      return
+    }
+    await setScratchNotePinned(note.id, !note.pinned)
+    await loadNotes()
+  }
+
+  const handlePromote = async (note: ScratchNote, target: 'task' | 'journal') => {
+    if (!note.id) {
+      return
+    }
+    await promoteScratchNote(note.id, target)
+    await loadNotes()
+  }
 
   return (
     <>
@@ -43,6 +71,7 @@ export function ScratchpadFab() {
         onClick={() => {
           setEditorOpen(true)
           setHistoryOpen(false)
+          setActiveNoteId(undefined)
         }}
         onContextMenu={(event) => {
           event.preventDefault()
@@ -88,7 +117,30 @@ export function ScratchpadFab() {
             <ul className="space-y-2">
               {notes.map((note) => (
                 <li key={note.id} className="rounded-card border border-border bg-surface p-3 text-sm text-text">
-                  {note.content}
+                  <p>{note.content}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      onClick={() => void handlePinToggle(note)}
+                    >
+                      {note.pinned ? 'Unpin' : 'Pin'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      onClick={() => void handlePromote(note, 'task')}
+                    >
+                      Promote to Task
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-border px-2 py-0.5 text-xs"
+                      onClick={() => void handlePromote(note, 'journal')}
+                    >
+                      Promote to Journal
+                    </button>
+                  </div>
                 </li>
               ))}
               {notes.length === 0 && <li className="text-sm text-muted">No scratch notes yet.</li>}

@@ -48,20 +48,49 @@ const randomId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-export async function upsertScratchNote(content: string): Promise<ScratchNote> {
+export async function upsertScratchNote(content: string, noteId?: string): Promise<ScratchNote> {
   const now = new Date().toISOString()
-  const note: ScratchNote = {
-    id: randomId(),
-    content,
-    pinned: false,
-    createdAt: now,
-    promotedTo: null,
-    updatedAt: now,
-  }
+  const existing = noteId ? await db.scratchNotes.get(noteId) : undefined
+  const note: ScratchNote = existing
+    ? {
+        ...existing,
+        content,
+        updatedAt: now,
+      }
+    : {
+        id: randomId(),
+        content,
+        pinned: false,
+        createdAt: now,
+        promotedTo: null,
+        updatedAt: now,
+      }
 
   await db.scratchNotes.put(note)
   await queueRecordSync('scratchNotes', note.id!, 'upsert', note)
   return note
+}
+
+export async function setScratchNotePinned(noteId: string, pinned: boolean): Promise<void> {
+  const note = await db.scratchNotes.get(noteId)
+  if (!note) {
+    return
+  }
+
+  const updated = { ...note, pinned, updatedAt: new Date().toISOString() }
+  await db.scratchNotes.put(updated)
+  await queueRecordSync('scratchNotes', noteId, 'upsert', updated)
+}
+
+export async function promoteScratchNote(noteId: string, target: 'task' | 'journal'): Promise<void> {
+  const note = await db.scratchNotes.get(noteId)
+  if (!note) {
+    return
+  }
+
+  const updated = { ...note, promotedTo: target, updatedAt: new Date().toISOString() }
+  await db.scratchNotes.put(updated)
+  await queueRecordSync('scratchNotes', noteId, 'upsert', updated)
 }
 
 export async function saveImportedMeals(
@@ -80,6 +109,19 @@ export async function saveImportedMeals(
   }
 
   return hydrated
+}
+
+export async function upsertSundayPlan(plan: Omit<SundayPlan, 'id' | 'updatedAt'>): Promise<SundayPlan> {
+  const existing = await db.sundayPlans.where('weekStartDate').equals(plan.weekStartDate).first()
+  const record: SundayPlan = {
+    ...plan,
+    id: existing?.id ?? randomId(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  await db.sundayPlans.put(record)
+  await queueRecordSync('sundayPlans', record.id!, 'upsert', record)
+  return record
 }
 
 export async function queueRecordSync(

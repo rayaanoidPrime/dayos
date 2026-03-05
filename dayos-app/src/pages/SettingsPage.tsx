@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { format, startOfWeek } from 'date-fns'
 import { Card } from '../components/Card'
+import { upsertSundayPlan } from '../lib/db'
 import { useUIStore } from '../store/uiStore'
 
 export function SettingsPage() {
@@ -9,6 +11,29 @@ export function SettingsPage() {
 
   const [examTitle, setExamTitle] = useState(examMode.examTitle)
   const [examDate, setExamDate] = useState(examMode.examDate)
+  const [workoutIntentions, setWorkoutIntentions] = useState('PPL + 1 cardio session')
+  const [studyIntentions, setStudyIntentions] = useState('Finish ME256 module 4')
+  const [researchIntentions, setResearchIntentions] = useState('Complete literature review draft')
+  const [weeklyGoal, setWeeklyGoal] = useState('Ship consistent deep work blocks.')
+  const [planStatus, setPlanStatus] = useState('')
+
+  const saveSundayPlan = async () => {
+    const weekStartDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    await upsertSundayPlan({
+      weekStartDate,
+      workoutIntentions,
+      studyIntentions,
+      researchIntentions,
+      weeklyGoal,
+    })
+    setSundayPlan({
+      workoutIntentions,
+      studyIntentions,
+      researchIntentions,
+      weeklyGoal,
+    })
+    setPlanStatus(`Saved plan for week starting ${weekStartDate}.`)
+  }
 
   return (
     <div className="space-y-3">
@@ -37,20 +62,40 @@ export function SettingsPage() {
       </Card>
 
       <Card title="Sunday Planning">
+        <div className="space-y-2">
+          <input
+            className="h-12 w-full rounded-input border border-border px-3"
+            value={workoutIntentions}
+            onChange={(event) => setWorkoutIntentions(event.target.value)}
+            placeholder="Workout intentions"
+          />
+          <input
+            className="h-12 w-full rounded-input border border-border px-3"
+            value={studyIntentions}
+            onChange={(event) => setStudyIntentions(event.target.value)}
+            placeholder="Study intentions"
+          />
+          <input
+            className="h-12 w-full rounded-input border border-border px-3"
+            value={researchIntentions}
+            onChange={(event) => setResearchIntentions(event.target.value)}
+            placeholder="Research intentions"
+          />
+          <input
+            className="h-12 w-full rounded-input border border-border px-3"
+            value={weeklyGoal}
+            onChange={(event) => setWeeklyGoal(event.target.value)}
+            placeholder="Weekly goal"
+          />
+        </div>
         <button
           type="button"
-          className="h-12 w-full rounded-full border border-border px-4 text-sm font-semibold"
-          onClick={() =>
-            setSundayPlan({
-              workoutIntentions: 'PPL + 1 cardio session',
-              studyIntentions: 'Finish ME256 module 4',
-              researchIntentions: 'Complete literature review draft',
-              weeklyGoal: 'Ship consistent deep work blocks.',
-            })
-          }
+          className="mt-2 h-12 w-full rounded-full border border-border px-4 text-sm font-semibold"
+          onClick={() => void saveSundayPlan()}
         >
-          Seed sample weekly plan
+          Save weekly plan
         </button>
+        {planStatus && <p className="mt-2 text-xs text-success">{planStatus}</p>}
       </Card>
     </div>
   )
