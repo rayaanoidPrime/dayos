@@ -44,10 +44,15 @@ export function YouPage() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncStatus, setSyncStatus] = useState('')
-  const [targetCalories, setTargetCalories] = useState(String(nutritionTargets.calories))
-  const [targetProtein, setTargetProtein] = useState(String(nutritionTargets.proteinG))
-  const [targetCarbs, setTargetCarbs] = useState(String(nutritionTargets.carbsG))
-  const [targetFats, setTargetFats] = useState(String(nutritionTargets.fatsG))
+  const [targetDayType, setTargetDayType] = useState<'default' | 'training' | 'rest'>('default')
+  const activeNutritionTarget = useMemo(
+    () => nutritionTargets[targetDayType] ?? nutritionTargets.default,
+    [nutritionTargets, targetDayType],
+  )
+  const [targetCalories, setTargetCalories] = useState(String(activeNutritionTarget.calories))
+  const [targetProtein, setTargetProtein] = useState(String(activeNutritionTarget.proteinG))
+  const [targetCarbs, setTargetCarbs] = useState(String(activeNutritionTarget.carbsG))
+  const [targetFats, setTargetFats] = useState(String(activeNutritionTarget.fatsG))
   const [goalStatus, setGoalStatus] = useState('')
 
   const profileName = useMemo(() => getProfileName(sessionEmail), [sessionEmail])
@@ -171,21 +176,25 @@ export function YouPage() {
       return
     }
 
-    setNutritionTargets({
+    setNutritionTargets(targetDayType, {
       calories: Math.round(nextCalories),
       proteinG: Math.round(nextProtein),
       carbsG: Math.round(nextCarbs),
       fatsG: Math.round(nextFats),
     })
-    setGoalStatus('Saved. These targets apply every day until changed again.')
+    setGoalStatus(
+      targetDayType === 'default'
+        ? 'Saved. These default targets apply every day until changed again.'
+        : `Saved. These ${targetDayType} targets override defaults for ${targetDayType} days.`,
+    )
   }
 
   useEffect(() => {
-    setTargetCalories(String(nutritionTargets.calories))
-    setTargetProtein(String(nutritionTargets.proteinG))
-    setTargetCarbs(String(nutritionTargets.carbsG))
-    setTargetFats(String(nutritionTargets.fatsG))
-  }, [nutritionTargets])
+    setTargetCalories(String(activeNutritionTarget.calories))
+    setTargetProtein(String(activeNutritionTarget.proteinG))
+    setTargetCarbs(String(activeNutritionTarget.carbsG))
+    setTargetFats(String(activeNutritionTarget.fatsG))
+  }, [activeNutritionTarget])
 
   useEffect(() => {
     void refreshSyncInfo()
@@ -333,7 +342,26 @@ export function YouPage() {
       <section className="mt-8">
         <h2 className="mb-3 text-[20px] font-normal text-text">Daily Macro Goals</h2>
         <div className="rounded-input border border-border bg-surface p-4">
-          <p className="mb-3 text-xs text-tertiary">These persist as your default daily targets until you update them.</p>
+          <p className="mb-3 text-xs text-tertiary">Set default targets and optional overrides for training/rest days.</p>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            {(['default', 'training', 'rest'] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`h-8 rounded-full border px-3 ${
+                  targetDayType === type
+                    ? 'border-white bg-white/15 text-white'
+                    : 'border-border bg-transparent text-tertiary'
+                }`}
+                onClick={() => {
+                  setTargetDayType(type)
+                  setGoalStatus('')
+                }}
+              >
+                {type === 'default' ? 'Default' : type === 'training' ? 'Training Day' : 'Rest Day'}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <input
               className="inspo-field"

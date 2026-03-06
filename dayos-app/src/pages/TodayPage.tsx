@@ -1,4 +1,4 @@
-import { addDays, format } from 'date-fns'
+import { format } from 'date-fns'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { db, deleteMeal, logMeal, saveImportedMeals, updateMeal } from '../lib/db'
@@ -6,8 +6,8 @@ import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
 import { findNextEventInstance, getEventInstancesForDate, useScheduleStore } from '../store/scheduleStore'
 import { useStudyStore } from '../store/studyStore'
-import type { MealTemplate } from '../store/todayStore'
-import { NutritionDayType, useTodayStore } from '../store/todayStore'
+import type { MealTemplate, NutritionDayType } from '../store/todayStore'
+import { useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
 import type { Meal, SessionType } from '../types/domain'
 
@@ -193,8 +193,8 @@ export function TodayPage() {
   const sessionType = sessionOverrideType ?? baseSessionType
   const dayType: NutritionDayType = sessionType === 'rest' ? 'rest' : 'training'
   const workoutLog = logsByDate[today]
-  const trainingOptions = weeklySplit.filter((type) => type !== 'rest')
-  const [overrideSelection, setOverrideSelection] = useState<SessionType>(trainingOptions[0] ?? 'push')
+  const trainingOptions = weeklySplit.filter((type): type is Exclude<SessionType, 'rest'> => type !== 'rest')
+  const [overrideSelection, setOverrideSelection] = useState<Exclude<SessionType, 'rest'>>(trainingOptions[0] ?? 'push')
   useEffect(() => {
     if (!trainingOptions.includes(overrideSelection)) {
       setOverrideSelection(trainingOptions[0] ?? 'push')
@@ -477,7 +477,7 @@ export function TodayPage() {
     return rows
   }, [workoutLog])
 
-  const progressiveHints = useMemo(() => {
+  const progressiveHints = useMemo<Array<{ name: string; diff: number }>>(() => {
     if (!workoutLog) {
       return []
     }
@@ -496,7 +496,7 @@ export function TodayPage() {
           diff: difference,
         }
       })
-      .filter(Boolean)
+      .filter((hint): hint is { name: string; diff: number } => hint !== null)
   }, [workoutLog])
 
   const paperByStatus = {
@@ -531,7 +531,7 @@ export function TodayPage() {
     }
 
     return { consumed, remaining }
-  }, [nutritionTargets, todayMeals])
+  }, [activeTarget, todayMeals])
 
   const macroBars = useMemo(
     () => [
@@ -690,7 +690,7 @@ export function TodayPage() {
                   <select
                     className="inspo-field w-full max-w-[180px]"
                     value={overrideSelection}
-                    onChange={(event) => setOverrideSelection(event.target.value as SessionType)}
+                    onChange={(event) => setOverrideSelection(event.target.value as Exclude<SessionType, 'rest'>)}
                   >
                     {trainingOptions.map((option) => (
                       <option key={option} value={option}>
@@ -776,6 +776,7 @@ export function TodayPage() {
                   )}
                 </tbody>
               </table>
+              </>
             )}
           </section>
         </div>
@@ -1002,7 +1003,16 @@ export function TodayPage() {
                         Edit
                       </button>
                       {meal.id && (
-                        <button type="button" className="inspo-button-ghost h-8 px-3" onClick={() => void deleteMealEntry(meal.id)}>
+                        <button
+                          type="button"
+                          className="inspo-button-ghost h-8 px-3"
+                          onClick={() => {
+                            if (!meal.id) {
+                              return
+                            }
+                            void deleteMealEntry(meal.id)
+                          }}
+                        >
                           Delete
                         </button>
                       )}

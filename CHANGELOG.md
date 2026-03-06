@@ -725,3 +725,13 @@
 #### What is still left
 - Expand workout template tooling (reorder/duplicate templates) and tie those templates into the Workout Builder card on Plan.
 - Add adaptive alerts on Today/You when manual overrides are active or when progressive hints suggest overreaching.
+
+### Commit 14 - Today Page Build Fix + Macro Target Type Migration
+#### What changed
+- Fixed the Today page JSX/type regressions that were breaking TypeScript build after the nutrition/workout QoL updates.
+- Repaired workout rest-override typing paths and progressive hint typing to satisfy strict TS checks.
+- Updated You page macro goal editing to the new day-type target model (`default`, `training`, `rest`) with proper fallback behavior and persistence calls.
+
+#### What is still left
+- Plan scheduler QoL remains pending: drag/move/resize blocks, overlap lane layout, and hard collision warnings.
+- You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.
