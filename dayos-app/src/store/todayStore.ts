@@ -29,6 +29,13 @@ export type MealTemplate = {
   carbsG: number
 }
 
+type WeeklyGoalThresholds = {
+  study: number
+  research: number
+  workout: number
+  nutrition: number
+}
+
 type DayCardState = Partial<Record<TodayCardKey, boolean>>
 
 type TodayState = {
@@ -37,12 +44,14 @@ type TodayState = {
   waterMlByDate: Record<string, number>
   nutritionTargets: NutritionTargetsByType
   mealTemplates: MealTemplate[]
+  weeklyGoalThresholds: WeeklyGoalThresholds
   setCardCollapsed: (date: string, key: TodayCardKey, collapsed: boolean) => void
   toggleCardComplete: (date: string, key: TodayCardKey) => void
   addWater: (date: string, delta: number) => void
   resetWater: (date: string) => void
   addMealTemplate: (template: Omit<MealTemplate, 'id'>) => void
   setNutritionTargets: (type: NutritionDayType, targets: NutritionTargets) => void
+  setWeeklyGoalThreshold: (key: keyof WeeklyGoalThresholds, value: number) => void
 }
 
 const randomId = () =>
@@ -65,6 +74,12 @@ export const useTodayStore = create<TodayState>()(
         },
       },
       mealTemplates: [],
+      weeklyGoalThresholds: {
+        study: 5,
+        research: 4,
+        workout: 4,
+        nutrition: 6,
+      },
       setCardCollapsed: (date, key, collapsed) =>
         set((state) => ({
           collapsedByDate: {
@@ -122,6 +137,13 @@ export const useTodayStore = create<TodayState>()(
               fatsG: Math.max(0, Math.round(targets.fatsG)),
               carbsG: Math.max(0, Math.round(targets.carbsG)),
             },
+          },
+        })),
+      setWeeklyGoalThreshold: (key, value) =>
+        set((state) => ({
+          weeklyGoalThresholds: {
+            ...state.weeklyGoalThresholds,
+            [key]: Math.max(0, Math.min(7, Math.round(value))),
           },
         })),
     }),

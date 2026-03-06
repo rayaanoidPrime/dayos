@@ -753,3 +753,13 @@
 
 #### What is still left
 - You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.
+
+### Commit 17 - You Weekly Review + Goal Threshold Alerts
+#### What changed
+- Added a unified weekly review card in You page for study, research, workout, and nutrition completion.
+- Added configurable per-metric weekly thresholds (0-7 days) with persisted settings.
+- Added inline alert messaging that marks each metric as met vs below target for the current week window.
+
+#### What is still left
+- Add optional push/in-app reminders tied to below-target weekly alerts.
+- Add weekly summary export to accompany the review card.

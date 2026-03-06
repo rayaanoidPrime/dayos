@@ -35,6 +35,8 @@ export function YouPage() {
   const completionByDate = useTodayStore((state) => state.completionByDate)
   const nutritionTargets = useTodayStore((state) => state.nutritionTargets)
   const setNutritionTargets = useTodayStore((state) => state.setNutritionTargets)
+  const weeklyGoalThresholds = useTodayStore((state) => state.weeklyGoalThresholds)
+  const setWeeklyGoalThreshold = useTodayStore((state) => state.setWeeklyGoalThreshold)
   const studyByDate = useStudyStore((state) => state.byDate)
   const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
 
@@ -54,6 +56,7 @@ export function YouPage() {
   const [targetCarbs, setTargetCarbs] = useState(String(activeNutritionTarget.carbsG))
   const [targetFats, setTargetFats] = useState(String(activeNutritionTarget.fatsG))
   const [goalStatus, setGoalStatus] = useState('')
+  const [weeklyStatus, setWeeklyStatus] = useState('')
 
   const profileName = useMemo(() => getProfileName(sessionEmail), [sessionEmail])
   const profileInitial = useMemo(() => profileName.charAt(0).toUpperCase(), [profileName])
@@ -147,6 +150,37 @@ export function YouPage() {
       heatmapData,
     }
   }, [completionByDate, studyByDate, workoutLogsByDate])
+
+  const weeklyReview = useMemo(() => {
+    const { start, end } = weekBounds(0)
+    const days = Array.from({ length: 7 }).map((_, index) => {
+      const date = new Date(`${start}T00:00:00`)
+      date.setDate(date.getDate() + index)
+      return format(date, 'yyyy-MM-dd')
+    })
+
+    const doneCount = (key: 'study' | 'research' | 'workout' | 'nutrition') =>
+      days.reduce((count, day) => count + (completionByDate[day]?.[key] ? 1 : 0), 0)
+
+    const byKey = {
+      study: doneCount('study'),
+      research: doneCount('research'),
+      workout: doneCount('workout'),
+      nutrition: doneCount('nutrition'),
+    }
+
+    const alerts = (Object.keys(byKey) as Array<keyof typeof byKey>)
+      .map((key) => {
+        const target = weeklyGoalThresholds[key]
+        const done = byKey[key]
+        if (done >= target) {
+          return `${key}: met (${done}/${target})`
+        }
+        return `${key}: below target (${done}/${target})`
+      })
+
+    return { start, end, byKey, alerts }
+  }, [completionByDate, weeklyGoalThresholds])
 
   const refreshSyncInfo = async () => {
     const [count, activeEmail] = await Promise.all([db.syncQueue.count(), getSessionEmail()])
@@ -275,6 +309,44 @@ export function YouPage() {
         <p className="mt-3 text-xs text-muted">Pending sync queue: {queueCount}</p>
         {authStatus && <p className="mt-2 text-xs text-tertiary">{authStatus}</p>}
         {syncStatus && <p className="mt-1 text-xs text-tertiary">{syncStatus}</p>}
+      </section>
+
+      <section className="mt-5">
+        <span className="page-label">Weekly Review</span>
+        <div className="mt-2 rounded-input border border-border bg-surface p-4">
+          <p className="text-xs text-tertiary">
+            {weeklyReview.start} to {weeklyReview.end}
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {(['study', 'research', 'workout', 'nutrition'] as const).map((key) => (
+              <div key={key} className="rounded-input border border-white/10 bg-[var(--surface-strong)] p-3">
+                <p className="text-xs uppercase tracking-[0.05em] text-tertiary">{key}</p>
+                <p className="mt-1 text-lg text-white">
+                  {weeklyReview.byKey[key]} / {weeklyGoalThresholds[key]} days
+                </p>
+                <input
+                  className="inspo-field mt-2 w-full"
+                  type="number"
+                  min={0}
+                  max={7}
+                  value={weeklyGoalThresholds[key]}
+                  onChange={(event) => {
+                    setWeeklyGoalThreshold(key, Number(event.target.value))
+                    setWeeklyStatus('Saved weekly thresholds.')
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 space-y-1">
+            {weeklyReview.alerts.map((alert) => (
+              <p key={alert} className={`text-xs ${alert.includes('below target') ? 'text-warning' : 'text-success'}`}>
+                {alert}
+              </p>
+            ))}
+          </div>
+          {weeklyStatus && <p className="mt-2 text-xs text-tertiary">{weeklyStatus}</p>}
+        </div>
       </section>
 
       <section className="mt-5">
