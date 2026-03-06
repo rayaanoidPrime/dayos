@@ -59,6 +59,47 @@ const randomId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+const defaultNutritionTargets: NutritionTargets = {
+  calories: 2200,
+  proteinG: 140,
+  fatsG: 70,
+  carbsG: 250,
+}
+
+const normalizeTarget = (input: unknown): NutritionTargets => {
+  const source = input as Partial<NutritionTargets> | undefined
+  const calories = typeof source?.calories === 'number' ? source.calories : Number.NaN
+  const proteinG = typeof source?.proteinG === 'number' ? source.proteinG : Number.NaN
+  const fatsG = typeof source?.fatsG === 'number' ? source.fatsG : Number.NaN
+  const carbsG = typeof source?.carbsG === 'number' ? source.carbsG : Number.NaN
+  return {
+    calories: Number.isFinite(calories) ? Math.max(0, Math.round(calories)) : defaultNutritionTargets.calories,
+    proteinG: Number.isFinite(proteinG) ? Math.max(0, Math.round(proteinG)) : defaultNutritionTargets.proteinG,
+    fatsG: Number.isFinite(fatsG) ? Math.max(0, Math.round(fatsG)) : defaultNutritionTargets.fatsG,
+    carbsG: Number.isFinite(carbsG) ? Math.max(0, Math.round(carbsG)) : defaultNutritionTargets.carbsG,
+  }
+}
+
+const normalizeNutritionTargets = (input: unknown): NutritionTargetsByType => {
+  if (!input || typeof input !== 'object') {
+    return { default: { ...defaultNutritionTargets } }
+  }
+
+  const raw = input as Record<string, unknown>
+  if ('default' in raw) {
+    const typed = raw as { default?: unknown; training?: unknown; rest?: unknown }
+    return {
+      default: normalizeTarget(typed.default),
+      training: typed.training ? normalizeTarget(typed.training) : undefined,
+      rest: typed.rest ? normalizeTarget(typed.rest) : undefined,
+    }
+  }
+
+  return {
+    default: normalizeTarget(raw),
+  }
+}
+
 export const useTodayStore = create<TodayState>()(
   persist(
     (set) => ({
@@ -66,12 +107,7 @@ export const useTodayStore = create<TodayState>()(
       completionByDate: {},
       waterMlByDate: {},
       nutritionTargets: {
-        default: {
-          calories: 2200,
-          proteinG: 140,
-          fatsG: 70,
-          carbsG: 250,
-        },
+        default: { ...defaultNutritionTargets },
       },
       mealTemplates: [],
       weeklyGoalThresholds: {
@@ -149,6 +185,14 @@ export const useTodayStore = create<TodayState>()(
     }),
     {
       name: 'dayos-today-state',
+      merge: (persistedState, currentState) => {
+        const incoming = (persistedState as Partial<TodayState> | undefined) ?? {}
+        return {
+          ...currentState,
+          ...incoming,
+          nutritionTargets: normalizeNutritionTargets(incoming.nutritionTargets ?? currentState.nutritionTargets),
+        }
+      },
     },
   ),
 )

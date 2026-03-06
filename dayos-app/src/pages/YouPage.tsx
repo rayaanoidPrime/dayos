@@ -48,7 +48,14 @@ export function YouPage() {
   const [syncStatus, setSyncStatus] = useState('')
   const [targetDayType, setTargetDayType] = useState<'default' | 'training' | 'rest'>('default')
   const activeNutritionTarget = useMemo(
-    () => nutritionTargets[targetDayType] ?? nutritionTargets.default,
+    () =>
+      nutritionTargets[targetDayType] ??
+      nutritionTargets.default ?? {
+        calories: 2200,
+        proteinG: 140,
+        carbsG: 250,
+        fatsG: 70,
+      },
     [nutritionTargets, targetDayType],
   )
   const [targetCalories, setTargetCalories] = useState(String(activeNutritionTarget.calories))

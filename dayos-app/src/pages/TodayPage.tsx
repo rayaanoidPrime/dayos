@@ -505,7 +505,17 @@ export function TodayPage() {
     done: papers.find((paper) => paper.status === 'done'),
   }
 
-  const activeTarget = useMemo(() => nutritionTargets[dayType] ?? nutritionTargets.default, [dayType, nutritionTargets])
+  const activeTarget = useMemo(
+    () =>
+      nutritionTargets[dayType] ??
+      nutritionTargets.default ?? {
+        calories: 2200,
+        proteinG: 140,
+        carbsG: 250,
+        fatsG: 70,
+      },
+    [dayType, nutritionTargets],
+  )
 
   const nutritionProgress = useMemo(() => {
     const consumed = todayMeals.reduce(

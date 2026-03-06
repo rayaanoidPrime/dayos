@@ -763,3 +763,13 @@
 #### What is still left
 - Add optional push/in-app reminders tied to below-target weekly alerts.
 - Add weekly summary export to accompany the review card.
+
+### Commit 18 - Legacy Nutrition Target Migration Crash Fix
+#### What changed
+- Fixed a Today page runtime crash (`Cannot read properties of undefined (reading 'calories')`) caused by legacy persisted `nutritionTargets` shape.
+- Added store-level persist merge normalization so old flat macro target objects are migrated to the new `{ default, training, rest }` structure.
+- Added defensive fallback targets in Today and You pages to prevent render-time crashes if target data is temporarily malformed.
+
+#### What is still left
+- Add optional push/in-app reminders tied to below-target weekly alerts.
+- Add weekly summary export to accompany the review card.
