@@ -11,7 +11,15 @@ type NutritionTargets = {
   carbsG: number
 }
 
-type MealTemplate = {
+export type NutritionDayType = 'default' | 'training' | 'rest'
+
+type NutritionTargetsByType = {
+  default: NutritionTargets
+  training?: NutritionTargets
+  rest?: NutritionTargets
+}
+
+export type MealTemplate = {
   id: string
   name: string
   portionLabel: string
@@ -27,14 +35,14 @@ type TodayState = {
   collapsedByDate: Record<string, DayCardState>
   completionByDate: Record<string, DayCardState>
   waterMlByDate: Record<string, number>
-  nutritionTargets: NutritionTargets
+  nutritionTargets: NutritionTargetsByType
   mealTemplates: MealTemplate[]
   setCardCollapsed: (date: string, key: TodayCardKey, collapsed: boolean) => void
   toggleCardComplete: (date: string, key: TodayCardKey) => void
   addWater: (date: string, delta: number) => void
   resetWater: (date: string) => void
   addMealTemplate: (template: Omit<MealTemplate, 'id'>) => void
-  setNutritionTargets: (targets: NutritionTargets) => void
+  setNutritionTargets: (type: NutritionDayType, targets: NutritionTargets) => void
 }
 
 const randomId = () =>
@@ -49,10 +57,12 @@ export const useTodayStore = create<TodayState>()(
       completionByDate: {},
       waterMlByDate: {},
       nutritionTargets: {
-        calories: 2200,
-        proteinG: 140,
-        fatsG: 70,
-        carbsG: 250,
+        default: {
+          calories: 2200,
+          proteinG: 140,
+          fatsG: 70,
+          carbsG: 250,
+        },
       },
       mealTemplates: [],
       setCardCollapsed: (date, key, collapsed) =>
@@ -102,15 +112,18 @@ export const useTodayStore = create<TodayState>()(
             mealTemplates: [{ ...template, id: randomId() }, ...state.mealTemplates].slice(0, 20),
           }
         }),
-      setNutritionTargets: (targets) =>
-        set({
+      setNutritionTargets: (type, targets) =>
+        set((state) => ({
           nutritionTargets: {
-            calories: Math.max(0, Math.round(targets.calories)),
-            proteinG: Math.max(0, Math.round(targets.proteinG)),
-            fatsG: Math.max(0, Math.round(targets.fatsG)),
-            carbsG: Math.max(0, Math.round(targets.carbsG)),
+            ...state.nutritionTargets,
+            [type]: {
+              calories: Math.max(0, Math.round(targets.calories)),
+              proteinG: Math.max(0, Math.round(targets.proteinG)),
+              fatsG: Math.max(0, Math.round(targets.fatsG)),
+              carbsG: Math.max(0, Math.round(targets.carbsG)),
+            },
           },
-        }),
+        })),
     }),
     {
       name: 'dayos-today-state',

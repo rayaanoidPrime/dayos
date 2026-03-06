@@ -706,3 +706,13 @@
 - Progressive-overload hints, template reorder/duplicate, rest-day overrides on workout logs.
 - Drag/move/resize events, overlap lanes, and conflict badges on the weekly Plan map.
 - Weekly summary report downloads, project-level dashboards, and modular sync-status indicators.
+
+### Commit 12 - Nutrition QoL Enhancements
+#### What changed
+- Added inline edit/delete + template-saving flows for Today meals, complete with quick-save chips and inline edit form.
+- Introduced day-type-aware macro targets (training/rest vs default) with fallback and macro progress bars that reflect the active target.
+- Added DB helpers for logging/updating/deleting meals and hooked the UI to the new macros, templates, and quick-add flows.
+
+#### What is still left
+- Implement inline meal template management (delete/edit templates) and meal history per project/workout context.
+- Add nutrition-specific alerts on the You page when day-type macros are missed.

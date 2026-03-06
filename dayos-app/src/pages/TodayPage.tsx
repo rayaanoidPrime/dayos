@@ -1,12 +1,13 @@
-import { format } from 'date-fns'
-import { useEffect, useMemo, useState } from 'react'
+import { addDays, format } from 'date-fns'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { db, saveImportedMeals } from '../lib/db'
+import { db, deleteMeal, logMeal, saveImportedMeals, updateMeal } from '../lib/db'
 import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
 import { findNextEventInstance, getEventInstancesForDate, useScheduleStore } from '../store/scheduleStore'
 import { useStudyStore } from '../store/studyStore'
-import { useTodayStore } from '../store/todayStore'
+import type { MealTemplate } from '../store/todayStore'
+import { NutritionDayType, useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
 import type { Meal } from '../types/domain'
 
@@ -154,6 +155,9 @@ export function TodayPage() {
   const [isImportOpen, setImportOpen] = useState(false)
   const [importInput, setImportInput] = useState('')
   const [importStatus, setImportStatus] = useState('')
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
+  const [mealDraft, setMealDraft] = useState<MealSchemaView | null>(null)
+  const [templateSaveStatus, setTemplateSaveStatus] = useState('')
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const [isRunningTimer, setIsRunningTimer] = useState(false)
   const [remainingSecs, setRemainingSecs] = useState(23 * 60 + 45)
@@ -162,6 +166,8 @@ export function TodayPage() {
   const completionByDate = useTodayStore((state) => state.completionByDate)
   const toggleCardComplete = useTodayStore((state) => state.toggleCardComplete)
   const nutritionTargets = useTodayStore((state) => state.nutritionTargets)
+  const mealTemplates = useTodayStore((state) => state.mealTemplates)
+  const addMealTemplate = useTodayStore((state) => state.addMealTemplate)
 
   const recurringClasses = useScheduleStore((state) => state.recurringClasses)
   const events = useScheduleStore((state) => state.events)
@@ -180,6 +186,7 @@ export function TodayPage() {
 
   const dayIndexForSplit = (new Date().getDay() + 6) % 7
   const sessionType = weeklySplit[dayIndexForSplit] ?? 'rest'
+  const dayType: NutritionDayType = sessionType === 'rest' ? 'rest' : 'training'
   const workoutLog = logsByDate[today]
   const studyBlocks = studyByDate[today]?.blocks ?? []
   const journalEntry = entriesByDate[today]
@@ -228,11 +235,97 @@ export function TodayPage() {
     }
   }, [activeBlockId, studyBlocks])
 
-  useEffect(() => {
-    void db.meals.where('date').equals(today).toArray().then((rows) => {
-      setTodayMeals(rows.map(toMealSchemaView))
-    })
+  const reloadMeals = useCallback(async () => {
+    const rows = await db.meals.where('date').equals(today).toArray()
+    setTodayMeals(rows.map(toMealSchemaView))
   }, [today])
+
+  useEffect(() => {
+    void reloadMeals()
+  }, [reloadMeals])
+
+  const startMealEdit = (meal: MealSchemaView) => {
+    if (!meal.id) {
+      return
+    }
+    setEditingMealId(meal.id)
+    setMealDraft(meal)
+    setTemplateSaveStatus('')
+  }
+
+  const cancelMealEdit = () => {
+    setEditingMealId(null)
+    setMealDraft(null)
+    setTemplateSaveStatus('')
+  }
+
+  const saveMealEdit = async () => {
+    if (!mealDraft?.id) {
+      return
+    }
+    const parseNumber = (value: unknown) => {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : 0
+    }
+
+    await updateMeal({
+      id: mealDraft.id,
+      date: today,
+      name: mealDraft.name,
+      portionLabel: mealDraft.portion_label,
+      calories: parseNumber(mealDraft.calories),
+      proteinG: parseNumber(mealDraft.protein_g),
+      fatsG: parseNumber(mealDraft.fats_g),
+      carbsG: parseNumber(mealDraft.carbs_g),
+      source: 'manual',
+      updatedAt: mealDraft.updated_at ?? new Date().toISOString(),
+    })
+
+    cancelMealEdit()
+    void reloadMeals()
+  }
+
+  const deleteMealEntry = async (mealId: string) => {
+    if (!window.confirm('Remove this meal?')) {
+      return
+    }
+    await deleteMeal(mealId)
+    if (editingMealId === mealId) {
+      cancelMealEdit()
+    }
+    void reloadMeals()
+  }
+
+  const saveMealAsTemplate = () => {
+    if (!mealDraft) {
+      return
+    }
+    addMealTemplate({
+      name: mealDraft.name,
+      portionLabel: mealDraft.portion_label,
+      calories: mealDraft.calories ?? 0,
+      proteinG: mealDraft.protein_g ?? 0,
+      fatsG: mealDraft.fats_g ?? 0,
+      carbsG: mealDraft.carbs_g ?? 0,
+    })
+    setTemplateSaveStatus('Saved as template')
+  }
+
+  const applyMealTemplate = async (template: MealTemplate) => {
+    await logMeal({
+      date: today,
+      name: template.name,
+      portionLabel: template.portionLabel,
+      calories: template.calories,
+      proteinG: template.proteinG,
+      fatsG: template.fatsG,
+      carbsG: template.carbsG,
+      source: 'manual',
+    })
+    setImportStatus(`Logged ${template.name}`)
+    setTemplateSaveStatus('')
+    void reloadMeals()
+  }
 
   useEffect(() => {
     if (!isRunningTimer) {
@@ -378,6 +471,8 @@ export function TodayPage() {
     done: papers.find((paper) => paper.status === 'done'),
   }
 
+  const activeTarget = useMemo(() => nutritionTargets[dayType] ?? nutritionTargets.default, [dayType, nutritionTargets])
+
   const nutritionProgress = useMemo(() => {
     const consumed = todayMeals.reduce(
       (acc, meal) => ({
@@ -395,10 +490,10 @@ export function TodayPage() {
     )
 
     const remaining = {
-      calories: Math.max(0, nutritionTargets.calories - consumed.calories),
-      proteinG: Math.max(0, nutritionTargets.proteinG - consumed.proteinG),
-      carbsG: Math.max(0, nutritionTargets.carbsG - consumed.carbsG),
-      fatsG: Math.max(0, nutritionTargets.fatsG - consumed.fatsG),
+      calories: Math.max(0, activeTarget.calories - consumed.calories),
+      proteinG: Math.max(0, activeTarget.proteinG - consumed.proteinG),
+      carbsG: Math.max(0, activeTarget.carbsG - consumed.carbsG),
+      fatsG: Math.max(0, activeTarget.fatsG - consumed.fatsG),
     }
 
     return { consumed, remaining }
@@ -411,7 +506,7 @@ export function TodayPage() {
         label: 'Protein',
         consumed: nutritionProgress.consumed.proteinG,
         remaining: nutritionProgress.remaining.proteinG,
-        target: nutritionTargets.proteinG,
+        target: activeTarget.proteinG,
         colorClass: 'bg-[#7FA5D8]',
       },
       {
@@ -419,7 +514,7 @@ export function TodayPage() {
         label: 'Carbs',
         consumed: nutritionProgress.consumed.carbsG,
         remaining: nutritionProgress.remaining.carbsG,
-        target: nutritionTargets.carbsG,
+        target: activeTarget.carbsG,
         colorClass: 'bg-[#C8A37E]',
       },
       {
@@ -427,11 +522,11 @@ export function TodayPage() {
         label: 'Fats',
         consumed: nutritionProgress.consumed.fatsG,
         remaining: nutritionProgress.remaining.fatsG,
-        target: nutritionTargets.fatsG,
+        target: activeTarget.fatsG,
         colorClass: 'bg-[#7FCB92]',
       },
     ],
-    [nutritionProgress, nutritionTargets],
+    [nutritionProgress, activeTarget],
   )
 
   const onWorkoutRepsCommit = (row: WorkoutRow) => {
@@ -632,9 +727,12 @@ export function TodayPage() {
           </section>
 
           <section>
-            <h2 className="mb-4 mt-8 flex items-center justify-between text-[20px] font-normal text-white">
-              Nutrition <span className="text-[13px] text-tertiary">{nutritionProgress.consumed.calories} / {nutritionTargets.calories} kcal</span>
-            </h2>
+            <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <h2 className="text-[20px] font-normal text-white">Nutrition</h2>
+              <div className="text-[13px] text-tertiary">
+                {nutritionProgress.consumed.calories} / {activeTarget.calories} kcal · {sessionType === 'rest' ? 'Rest day targets' : 'Training day targets'}
+              </div>
+            </div>
             <div className="mb-4 rounded-input border border-border bg-surface p-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs uppercase tracking-[0.05em] text-tertiary">Calories Left</p>
@@ -644,21 +742,13 @@ export function TodayPage() {
                 <span
                   className="bg-white/60"
                   style={{
-                    width: `${
-                      nutritionTargets.calories > 0
-                        ? Math.min(100, (nutritionProgress.consumed.calories / nutritionTargets.calories) * 100)
-                        : 0
-                    }%`,
+                    width: `${activeTarget.calories > 0 ? Math.min(100, (nutritionProgress.consumed.calories / activeTarget.calories) * 100) : 0}%`,
                   }}
                 />
                 <span
                   className="bg-white/20"
                   style={{
-                    width: `${
-                      nutritionTargets.calories > 0
-                        ? Math.min(100, (nutritionProgress.remaining.calories / nutritionTargets.calories) * 100)
-                        : 0
-                    }%`,
+                    width: `${activeTarget.calories > 0 ? Math.min(100, (nutritionProgress.remaining.calories / activeTarget.calories) * 100) : 0}%`,
                   }}
                 />
               </div>
@@ -675,25 +765,38 @@ export function TodayPage() {
                     <div className="flex h-2 overflow-hidden rounded-full bg-white/10">
                       <span
                         className={macro.colorClass}
-                        style={{
-                          width: `${macro.target > 0 ? Math.min(100, (macro.consumed / macro.target) * 100) : 0}%`,
-                        }}
+                        style={{ width: `${macro.target > 0 ? Math.min(100, (macro.consumed / macro.target) * 100) : 0}%` }}
                       />
                       <span
                         className="bg-white/15"
-                        style={{
-                          width: `${macro.target > 0 ? Math.min(100, (macro.remaining / macro.target) * 100) : 0}%`,
-                        }}
+                        style={{ width: `${macro.target > 0 ? Math.min(100, (macro.remaining / macro.target) * 100) : 0}%` }}
                       />
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {mealTemplates.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2 text-[12px]">
+                {mealTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="rounded-full border border-border bg-white/10 px-3 py-1 text-white transition hover:border-primary"
+                    onClick={() => void applyMealTemplate(template)}
+                  >
+                    {template.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="mb-3 flex items-center gap-2">
               <button type="button" className="inspo-button-ghost h-9 px-4" onClick={() => setImportOpen((open) => !open)}>
                 Quick Import JSON/CSV
               </button>
+              {templateSaveStatus && <span className="text-xs text-success">{templateSaveStatus}</span>}
               {importStatus && <span className="text-xs text-tertiary">{importStatus}</span>}
             </div>
 
@@ -703,7 +806,7 @@ export function TodayPage() {
                   className="inspo-textarea h-24 w-full"
                   value={importInput}
                   onChange={(event) => setImportInput(event.target.value)}
-                  placeholder={'JSON: [{\"name\":\"Oats\",\"portionLabel\":\"80g\",\"calories\":300,\"proteinG\":12,\"fatsG\":5,\"carbsG\":50}] or CSV: name,portion,calories,protein,fats,carbs'}
+                  placeholder={'JSON: [{"name":"Oats","portionLabel":"80g","calories":300,"proteinG":12,"fatsG":5,"carbsG":50}] or CSV: name,portion,calories,protein,fats,carbs'}
                 />
                 <div className="mt-2 flex gap-2">
                   <button type="button" className="inspo-button-primary h-9 px-4" onClick={() => void onQuickImportMeals()}>
@@ -717,25 +820,111 @@ export function TodayPage() {
             )}
 
             <div className="space-y-2">
-              {todayMeals.map((meal) => (
-                <article
-                  key={meal.id ?? `${meal.name}-${meal.updated_at}`}
-                  className="rounded-input border border-white/5 bg-surface px-3 py-2.5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-white">{meal.name}</p>
-                      <p className="text-xs text-tertiary">{meal.portion_label || '-'}</p>
+              {todayMeals.map((meal) => {
+                const isEditing = editingMealId === meal.id
+                if (isEditing && mealDraft) {
+                  return (
+                    <article key={meal.id} className="rounded-input border border-border bg-[rgba(255,255,255,0.04)] p-3">
+                      <div className="space-y-2">
+                        <input
+                          className="inspo-field w-full"
+                          value={mealDraft.name}
+                          onChange={(event) => setMealDraft((draft) => (draft ? { ...draft, name: event.target.value } : draft))}
+                        />
+                        <input
+                          className="inspo-field w-full"
+                          value={mealDraft.portion_label}
+                          onChange={(event) => setMealDraft((draft) => (draft ? { ...draft, portion_label: event.target.value } : draft))}
+                          placeholder="Portion"
+                        />
+                        <div className="grid grid-cols-4 gap-2">
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={0}
+                            value={mealDraft.calories}
+                            onChange={(event) =>
+                              setMealDraft((draft) => (draft ? { ...draft, calories: Number(event.target.value) } : draft))
+                            }
+                            placeholder="Calories"
+                          />
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={0}
+                            value={mealDraft.protein_g}
+                            onChange={(event) =>
+                              setMealDraft((draft) => (draft ? { ...draft, protein_g: Number(event.target.value) } : draft))
+                            }
+                            placeholder="Protein"
+                          />
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={0}
+                            value={mealDraft.carbs_g}
+                            onChange={(event) =>
+                              setMealDraft((draft) => (draft ? { ...draft, carbs_g: Number(event.target.value) } : draft))
+                            }
+                            placeholder="Carbs"
+                          />
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={0}
+                            value={mealDraft.fats_g}
+                            onChange={(event) =>
+                              setMealDraft((draft) => (draft ? { ...draft, fats_g: Number(event.target.value) } : draft))
+                            }
+                            placeholder="Fats"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" className="inspo-button-primary h-9 px-4" onClick={() => void saveMealEdit()}>
+                            Save meal
+                          </button>
+                          <button type="button" className="inspo-button-ghost h-9 px-4" onClick={cancelMealEdit}>
+                            Cancel
+                          </button>
+                        </div>
+                        <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={saveMealAsTemplate}>
+                          Save as template
+                        </button>
+                      </div>
+                    </article>
+                  )
+                }
+
+                return (
+                  <article
+                    key={meal.id ?? `${meal.name}-${meal.updated_at}`}
+                    className="rounded-input border border-white/5 bg-surface px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-white">{meal.name}</p>
+                        <p className="text-xs text-tertiary">{meal.portion_label || '-'}</p>
+                      </div>
+                      <p className="shrink-0 text-sm text-muted">{meal.calories} kcal</p>
                     </div>
-                    <p className="shrink-0 text-sm text-muted">{meal.calories} kcal</p>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted">
-                    <p>P {meal.protein_g} g</p>
-                    <p>C {meal.carbs_g} g</p>
-                    <p>F {meal.fats_g} g</p>
-                  </div>
-                </article>
-              ))}
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted">
+                      <p>P {meal.protein_g} g</p>
+                      <p>C {meal.carbs_g} g</p>
+                      <p>F {meal.fats_g} g</p>
+                    </div>
+                    <div className="mt-2 flex gap-2 text-[11px]">
+                      <button type="button" className="inspo-button-ghost h-8 px-3" onClick={() => startMealEdit(meal)}>
+                        Edit
+                      </button>
+                      {meal.id && (
+                        <button type="button" className="inspo-button-ghost h-8 px-3" onClick={() => void deleteMealEntry(meal.id)}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
               {todayMeals.length === 0 && <p className="py-2 text-sm text-tertiary">No meals logged yet.</p>}
             </div>
           </section>

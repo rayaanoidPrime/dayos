@@ -111,6 +111,38 @@ export async function saveImportedMeals(
   return hydrated
 }
 
+export async function logMeal(meal: Omit<Meal, 'id' | 'updatedAt'>): Promise<Meal> {
+  const now = new Date().toISOString()
+  const record: Meal = {
+    ...meal,
+    id: randomId(),
+    updatedAt: now,
+  }
+
+  await db.meals.put(record)
+  await queueRecordSync('meals', record.id!, 'upsert', record)
+  return record
+}
+
+export async function updateMeal(meal: Meal): Promise<void> {
+  if (!meal.id) {
+    throw new Error('Meal id is required for update')
+  }
+
+  const updated: Meal = {
+    ...meal,
+    updatedAt: new Date().toISOString(),
+  }
+
+  await db.meals.put(updated)
+  await queueRecordSync('meals', meal.id, 'upsert', updated)
+}
+
+export async function deleteMeal(mealId: string): Promise<void> {
+  await db.meals.delete(mealId)
+  await queueRecordSync('meals', mealId, 'delete', {})
+}
+
 export async function upsertSundayPlan(plan: Omit<SundayPlan, 'id' | 'updatedAt'>): Promise<SundayPlan> {
   const existing = await db.sundayPlans.where('weekStartDate').equals(plan.weekStartDate).first()
   const record: SundayPlan = {
