@@ -227,7 +227,7 @@ export function ResearchPage() {
         </div>
 
         {activeProject && (
-          <div className="flex items-center justify-between border-b border-divider bg-surface/50 px-4 py-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-divider bg-divider/40 px-4 py-3 backdrop-blur-md">
             <div className="flex items-center space-x-2">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activeProject.colorTag }}></span>
               <span className="text-xs font-medium uppercase tracking-wide text-cream">{activeProject.name}</span>
@@ -465,11 +465,38 @@ export function ResearchPage() {
 
       {isWorklogDrawerOpen && (
         <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/80 backdrop-blur-sm">
-          <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => setWorklogDrawerOpen(false)} />
+          <button 
+            type="button" 
+            className="absolute inset-0 h-full w-full cursor-default" 
+            onClick={() => {
+              setWorklogDrawerOpen(false);
+              setWorklogTitle('');
+              setWorklogSummary('');
+              setWorklogHours('');
+              setWorklogOutputs('');
+            }} 
+          />
           
-          <div className="relative z-10 mx-auto mb-4 flex w-full max-w-md justify-end px-6">
-            <button type="button" className="rounded-full bg-surface/80 px-4 py-2 text-[13px] font-medium uppercase tracking-wider text-creamMuted backdrop-blur transition-colors hover:bg-white/10 hover:text-cream" onClick={() => setWorklogDrawerOpen(false)}>
+          <div className="relative z-10 mx-auto mb-4 flex w-full max-w-md justify-between px-6">
+            <button 
+              type="button" 
+              className="rounded-full bg-divider/80 px-4 py-2 text-[13px] font-medium uppercase tracking-wider text-cream backdrop-blur transition-colors hover:bg-white/10" 
+              onClick={() => {
+                setWorklogDrawerOpen(false);
+                setWorklogTitle('');
+                setWorklogSummary('');
+                setWorklogHours('');
+                setWorklogOutputs('');
+              }}
+            >
               Cancel
+            </button>
+            <button 
+              type="button" 
+              className="rounded-full bg-sage px-6 py-2 text-[13px] font-bold uppercase tracking-wider text-bg shadow-lg transition-colors hover:bg-[#9dbfa3]" 
+              onClick={onAddWorklog}
+            >
+              Save Entry
             </button>
           </div>
 
@@ -519,14 +546,6 @@ export function ResearchPage() {
               value={worklogSummary}
               onChange={(e) => setWorklogSummary(e.target.value)}
             />
-            
-            <button
-              type="button"
-              className="mt-4 w-full rounded-xl bg-sage py-4 font-medium text-bg transition-colors hover:bg-[#9dbfa3]"
-              onClick={onAddWorklog}
-            >
-              Save Entry
-            </button>
           </div>
         </div>
       )}
