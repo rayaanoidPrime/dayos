@@ -2,12 +2,11 @@ import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { db, saveImportedMeals } from '../lib/db'
-import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
 import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
 import { useScheduleStore } from '../store/scheduleStore'
 import { useStudyStore } from '../store/studyStore'
-import { cardKeys, useTodayStore } from '../store/todayStore'
+import { useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
 import type { Meal } from '../types/domain'
 
@@ -42,6 +41,28 @@ type QuickImportMeal = {
   fatsG: number
   carbsG: number
 }
+
+type MealSchemaView = {
+  id?: string
+  name: string
+  portion_label: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fats_g: number
+  updated_at: string
+}
+
+const toMealSchemaView = (meal: Meal): MealSchemaView => ({
+  id: meal.id,
+  name: meal.name,
+  portion_label: meal.portionLabel,
+  calories: meal.calories,
+  protein_g: meal.proteinG,
+  carbs_g: meal.carbsG,
+  fats_g: meal.fatsG,
+  updated_at: meal.updatedAt,
+})
 
 const toNumber = (value: unknown): number => {
   const parsed = Number(value)
@@ -129,7 +150,7 @@ export function TodayPage() {
   const weekday = useMemo(() => format(new Date(), 'EEEE'), [])
   const subtitle = useMemo(() => `${format(new Date(), 'MMMM d, yyyy')} - Week ${format(new Date(), 'II')}`, [])
 
-  const [todayMeals, setTodayMeals] = useState<Meal[]>([])
+  const [todayMeals, setTodayMeals] = useState<MealSchemaView[]>([])
   const [isImportOpen, setImportOpen] = useState(false)
   const [importInput, setImportInput] = useState('')
   const [importStatus, setImportStatus] = useState('')
@@ -179,7 +200,7 @@ export function TodayPage() {
 
   useEffect(() => {
     void db.meals.where('date').equals(today).toArray().then((rows) => {
-      setTodayMeals(rows)
+      setTodayMeals(rows.map(toMealSchemaView))
     })
   }, [today])
 
@@ -330,44 +351,6 @@ export function TodayPage() {
     done: papers.find((paper) => paper.status === 'done'),
   }
 
-  const heatmap = useMemo(() => {
-    const recent = Array.from({ length: 21 }).map((_, index) => {
-      const date = new Date()
-      date.setDate(date.getDate() - (20 - index))
-      const key = format(date, 'yyyy-MM-dd')
-      const map = completionByDate[key] ?? {}
-      const completedCount = cardKeys.reduce((count, cardKey) => count + (map[cardKey] ? 1 : 0), 0)
-      if (completedCount >= cardKeys.length) {
-        return 'high'
-      }
-      if (completedCount > 0) {
-        return 'active'
-      }
-      return 'low'
-    })
-
-    const chunks = [recent.slice(0, 7), recent.slice(7, 14), recent.slice(14, 21)]
-
-    const statuses = computeDayStatuses(
-      Array.from({ length: 30 }).map((_, index) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (29 - index))
-        const key = format(date, 'yyyy-MM-dd')
-        const map = completionByDate[key] ?? {}
-        const hadChecklistActivity = cardKeys.every((card) => Boolean(map[card]))
-        return { date: key, hadChecklistActivity }
-      }),
-    )
-
-    const completionRate = Math.round((recent.filter((level) => level !== 'low').length / recent.length) * 100)
-
-    return {
-      chunks,
-      streak: computeCurrentStreak(statuses),
-      completionRate,
-    }
-  }, [completionByDate])
-
   const totalCalories = todayMeals.reduce((sum, meal) => sum + meal.calories, 0)
 
   const onWorkoutRepsCommit = (row: WorkoutRow) => {
@@ -404,7 +387,7 @@ export function TodayPage() {
       )
 
       const refreshed = await db.meals.where('date').equals(today).toArray()
-      setTodayMeals(refreshed)
+      setTodayMeals(refreshed.map(toMealSchemaView))
       setImportStatus(`Imported ${parsed.length} meal${parsed.length === 1 ? '' : 's'}.`)
       setImportInput('')
       setImportOpen(false)
@@ -414,7 +397,7 @@ export function TodayPage() {
   }
 
   return (
-    <div className="h-full">
+    <div className="h-full max-w-full overflow-x-hidden">
       <div className="grid gap-8 md:grid-cols-2 md:gap-10">
         <div className="md:col-span-2">
           <span className="page-label">Institute of Natural Law</span>
@@ -541,7 +524,7 @@ export function TodayPage() {
             <h2 className="mb-4 mt-0 flex items-center justify-between text-[20px] font-normal text-white md:mt-8">
               Research <span className="text-[13px] text-tertiary">ArXiv Sync</span>
             </h2>
-            <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+            <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="min-w-[200px] rounded-input border border-border bg-surface p-4">
                 <span className="inline-flex rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-muted">To Read</span>
                 <div className="mt-2 text-[13px] leading-[1.4] text-white">{paperByStatus.toRead?.title ?? 'No paper in this lane yet'}</div>
@@ -565,28 +548,6 @@ export function TodayPage() {
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </Link>
-          </section>
-
-          <section>
-            <h2 className="mb-4 mt-8 text-[20px] font-normal text-white">Consistency</h2>
-            <div className="grid grid-cols-7 gap-1.5">
-              {heatmap.chunks.flat().map((level, index) => (
-                <div
-                  key={`${level}-${index}`}
-                  className={`aspect-square rounded-[2px] ${
-                    level === 'high' ? 'bg-white/60' : level === 'active' ? 'bg-white/20' : 'bg-white/5'
-                  }`}
-                />
-              ))}
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[13px] text-muted">
-              <span>Current Streak</span>
-              <span className="text-white">{heatmap.streak} Days</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[13px] text-muted">
-              <span>Completion Rate</span>
-              <span className="text-white">{heatmap.completionRate}%</span>
-            </div>
           </section>
 
           <section>
@@ -619,33 +580,28 @@ export function TodayPage() {
               </div>
             )}
 
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  <th className="border-b border-border pb-2 text-left font-normal text-tertiary">Item</th>
-                  <th className="border-b border-border pb-2 text-left font-normal text-tertiary">Portion</th>
-                  <th className="border-b border-border pb-2 text-right font-normal text-tertiary">kcal</th>
-                  <th className="border-b border-border pb-2 text-right font-normal text-tertiary">P</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayMeals.map((meal) => (
-                  <tr key={meal.id ?? `${meal.name}-${meal.updatedAt}`}>
-                    <td className="border-b border-white/5 py-2.5 text-muted">{meal.name}</td>
-                    <td className="border-b border-white/5 py-2.5 text-muted">{meal.portionLabel || '-'}</td>
-                    <td className="border-b border-white/5 py-2.5 text-right text-muted">{meal.calories}</td>
-                    <td className="border-b border-white/5 py-2.5 text-right text-muted">{meal.proteinG}</td>
-                  </tr>
-                ))}
-                {todayMeals.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-3 text-sm text-tertiary">
-                      No meals logged yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <div className="space-y-2">
+              {todayMeals.map((meal) => (
+                <article
+                  key={meal.id ?? `${meal.name}-${meal.updated_at}`}
+                  className="rounded-input border border-white/5 bg-surface px-3 py-2.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm text-white">{meal.name}</p>
+                      <p className="text-xs text-tertiary">{meal.portion_label || '-'}</p>
+                    </div>
+                    <p className="shrink-0 text-sm text-muted">{meal.calories} kcal</p>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted">
+                    <p>P {meal.protein_g} g</p>
+                    <p>C {meal.carbs_g} g</p>
+                    <p>F {meal.fats_g} g</p>
+                  </div>
+                </article>
+              ))}
+              {todayMeals.length === 0 && <p className="py-2 text-sm text-tertiary">No meals logged yet.</p>}
+            </div>
           </section>
         </div>
       </div>
