@@ -624,3 +624,52 @@
   - per-project exportable worklogs (CSV/JSON/Markdown).
 - Add research project metadata model (goal, milestone dates, tags, repository/paper links) and a project overview card.
 - Add project-level progress summaries to You/Today surfaces (active project snapshot + upcoming milestones).
+
+### Commit 8 - Project-Centric Research Feature Plan + App-Wide Feature Sweep
+#### What changed
+- Added a thorough implementation roadmap at `dayos-app/docs/project-research-roadmap.md` covering:
+  - target architecture for project-first research workflows,
+  - data model changes (`activeProjectId`, project CRUD, first-class worklogs),
+  - project-scoped UX plan for Research tab,
+  - export design (CSV/JSON/Markdown),
+  - migration/compatibility strategy for existing persisted data,
+  - phased rollout order.
+- Completed an app-wide sweep to identify missing but high-leverage integrations and QoL features.
+
+#### What is still left
+- Research project system (core):
+  - active project switcher + project CRUD UI,
+  - project-scoped paper/task/worklog lists,
+  - per-project worklog export actions (CSV/JSON/Markdown).
+- Research project system (depth):
+  - project milestones, tags, and goal tracking,
+  - project-level weekly effort charts (hours/log count),
+  - project archive/restore flow.
+- Today-Plan-Research wiring:
+  - link `project` calendar events to a selected `projectId`,
+  - surface upcoming project deadlines directly in Today research card,
+  - one-click “log work session” from Today timer completion into active project worklog.
+- Nutrition QoL:
+  - inline edit/delete for logged meals,
+  - meal template quick-add chips in Today nutrition,
+  - split targets by day type (training/rest) with automatic fallback.
+- Workout QoL:
+  - workout template reorder/duplicate,
+  - progressive overload hints from recent logged sets,
+  - quick “mark rest day override” when schedule changes ad hoc.
+- Plan scheduler QoL:
+  - drag/move/resize blocks on the weekly map,
+  - overlap lane layout for concurrent events,
+  - conflict detection + warning chips for hard collisions.
+- You page and metrics:
+  - unified weekly review card combining study/workout/research/nutrition completion,
+  - configurable weekly goal thresholds and alerts,
+  - downloadable weekly summary report.
+- Offline and sync hardening:
+  - explicit sync states per module row (pending/synced/failed),
+  - retry-from-item actions for failed queue entries,
+  - optional conflict resolution UI for divergent local/remote edits.
+- Accessibility and usability:
+  - keyboard-first interactions for drawers/tables,
+  - stronger focus states + larger hit targets for mobile controls,
+  - reduced-motion option for core animated surfaces.
