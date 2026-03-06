@@ -684,3 +684,14 @@
 - Wire `project` calendar events to the active research project and show those deadlines in Today/You.
 - Enable inline edit/delete for meals and add a lightweight project worklog capture flow.
 - Validate sync, keyboard, and accessibility needs before moving from planning to implementation.
+
+### Commit 10 - Cohesion & Richness Brainstorm
+#### What changed
+- Expanded `What is still left` to cover coherence gaps across Plan, Today, Research, and You, including Research project lifecycle, worklog exports, and cross-module insights.
+- Logged richness ideas: project milestones, weekly effort charts, project-focused summaries, and automation hints for research/worklog tracking.
+
+#### What is still left
+- Project CRUD + active project switcher UI.
+- Project-scoped paper/task/worklog lists and export actions (CSV/JSON/Markdown).
+- You-page weekly review/report export and configurable goal alerts tied to project/worklog metrics.
+- Synchronization diagnostics per module row plus offline conflict resolution UX.
