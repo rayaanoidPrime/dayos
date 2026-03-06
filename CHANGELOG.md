@@ -695,3 +695,14 @@
 - Project-scoped paper/task/worklog lists and export actions (CSV/JSON/Markdown).
 - You-page weekly review/report export and configurable goal alerts tied to project/worklog metrics.
 - Synchronization diagnostics per module row plus offline conflict resolution UX.
+
+### Commit 11 - QoL & Advanced Features Backlog
+#### What changed
+- Documented ease-of-life priorities for the Daily Planner/Research workflow: nutrition/workout tooling, Plan interaction polish, and insight/export hooks.
+- Logged additional QoL ideas (meal templates, workout template versioning, drag/resize map actions, weekly report downloads, sync diagnostics, and accessibility extras).
+
+#### What is still left
+- Inline meal template quick-add chips and day-type macro targets.
+- Progressive-overload hints, template reorder/duplicate, rest-day overrides on workout logs.
+- Drag/move/resize events, overlap lanes, and conflict badges on the weekly Plan map.
+- Weekly summary report downloads, project-level dashboards, and modular sync-status indicators.
