@@ -59,6 +59,7 @@ type TodayState = {
   addWater: (date: string, delta: number) => void
   resetWater: (date: string) => void
   addMealTemplate: (template: Omit<MealTemplate, 'id'>) => void
+  clearMealTemplates: () => void
   setNutritionTargets: (type: NutritionDayType, targets: NutritionTargets) => void
   setWeeklyGoalThreshold: (key: keyof WeeklyGoalThresholds, value: number) => void
   setWeeklyReminderSettings: (payload: Partial<Omit<WeeklyReminderSettings, 'lastPushSentAt'>>) => void
@@ -199,6 +200,7 @@ export const useTodayStore = create<TodayState>()(
             mealTemplates: [{ ...template, id: randomId() }, ...state.mealTemplates].slice(0, 20),
           }
         }),
+      clearMealTemplates: () => set({ mealTemplates: [] }),
       setNutritionTargets: (type, targets) =>
         set((state) => ({
           nutritionTargets: {
