@@ -1,5 +1,5 @@
 import { addDays, format, startOfWeek } from 'date-fns'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   type CalendarEvent,
   type EventCategory,
@@ -34,6 +34,19 @@ type WorkoutExerciseDraft = {
   plannedSets: string
   plannedReps: string
   weightKg: string
+}
+
+type LayoutInstance = ReturnType<typeof getEventInstancesForDate>[number] & {
+  lane: number
+  laneCount: number
+  hardConflict: boolean
+}
+
+type DragMode = 'move' | 'resize'
+
+type DragState = {
+  eventId: string
+  mode: DragMode
 }
 
 const eventStyleByCategory: Record<EventCategory, string> = {
@@ -98,6 +111,49 @@ const parseMinutes = (time: string): number => {
   return hour * 60 + minute
 }
 
+const toTimeLabel = (minutes: number): string => {
+  const safe = Math.max(0, Math.min(23 * 60 + 59, minutes))
+  const hour = Math.floor(safe / 60)
+  const minute = safe % 60
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+const overlaps = (
+  left: { startTime: string; endTime: string },
+  right: { startTime: string; endTime: string },
+): boolean => parseMinutes(left.startTime) < parseMinutes(right.endTime) && parseMinutes(right.startTime) < parseMinutes(left.endTime)
+
+const layoutInstances = (items: ReturnType<typeof getEventInstancesForDate>): LayoutInstance[] => {
+  const sorted = [...items].sort((a, b) => parseMinutes(a.startTime) - parseMinutes(b.startTime))
+  const laneEndMinutes: number[] = []
+  const laneById = new Map<string, number>()
+
+  sorted.forEach((item) => {
+    const start = parseMinutes(item.startTime)
+    let lane = laneEndMinutes.findIndex((endMinute) => endMinute <= start)
+    if (lane === -1) {
+      lane = laneEndMinutes.length
+      laneEndMinutes.push(parseMinutes(item.endTime))
+    } else {
+      laneEndMinutes[lane] = parseMinutes(item.endTime)
+    }
+    laneById.set(item.event.id, lane)
+  })
+
+  return sorted.map((item) => {
+    const lane = laneById.get(item.event.id) ?? 0
+    const collisions = sorted.filter((candidate) => candidate.event.id !== item.event.id && overlaps(item, candidate))
+    const laneCount = collisions.length > 0 ? Math.max(...collisions.map((candidate) => (laneById.get(candidate.event.id) ?? 0) + 1), lane + 1) : 1
+    const hardConflict = collisions.some((candidate) => candidate.event.category === 'exam' || candidate.event.category === 'deadline')
+    return {
+      ...item,
+      lane,
+      laneCount,
+      hardConflict,
+    }
+  })
+}
+
 const prettyCategory = (category: EventCategory): string =>
   category === 'project' ? 'Project' : category.charAt(0).toUpperCase() + category.slice(1)
 
@@ -140,12 +196,32 @@ export function SchedulePage() {
   const [templateNameDraft, setTemplateNameDraft] = useState('')
   const [templateExercisesDraft, setTemplateExercisesDraft] = useState<WorkoutExerciseDraft[]>([createExerciseDraft()])
   const [templateError, setTemplateError] = useState('')
+  const [dragState, setDragState] = useState<DragState | null>(null)
+  const [dragPreview, setDragPreview] = useState<{ date: string; startTime: string; endTime: string } | null>(null)
+  const dayColumnRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const weekInstances = useMemo(() => getEventInstancesForWeek(events, weekStartDate), [events, weekStartDate])
   const templateById = useMemo(() => Object.fromEntries(templates.map((template) => [template.id, template])), [templates])
+  const instancesByDate = useMemo(
+    () =>
+      Object.fromEntries(
+        weekDates.map((item) => {
+          const dateItems = weekInstances.filter((instance) => instance.date === item.iso)
+          return [item.iso, layoutInstances(dateItems)]
+        }),
+      ) as Record<string, LayoutInstance[]>,
+    [weekDates, weekInstances],
+  )
 
   const activeDate = weekDates[activeDayIndex]?.iso ?? weekDates[0].iso
   const activeDayInstances = useMemo(() => getEventInstancesForDate(events, activeDate), [activeDate, events])
+  const activeConflictEvents = useMemo(
+    () =>
+      activeDayInstances.filter((instance) =>
+        activeDayInstances.some((candidate) => candidate.event.id !== instance.event.id && overlaps(instance, candidate)),
+      ),
+    [activeDayInstances],
+  )
 
   const openDrawerForCreate = (date: string) => {
     setEditingEventId(null)
@@ -288,6 +364,90 @@ export function SchedulePage() {
   const maxMinute = 20 * 60
   const minuteRange = maxMinute - minMinute
 
+  const projectPointerToSlot = (clientX: number, clientY: number) => {
+    const targetDay = weekDates.find((item) => {
+      const column = dayColumnRefs.current[item.iso]
+      if (!column) {
+        return false
+      }
+      const rect = column.getBoundingClientRect()
+      return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    })
+    if (!targetDay) {
+      return null
+    }
+    const column = dayColumnRefs.current[targetDay.iso]
+    if (!column) {
+      return null
+    }
+    const rect = column.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))
+    const minuteRaw = minMinute + ratio * minuteRange
+    const minuteSnapped = Math.round(minuteRaw / 15) * 15
+    return { date: targetDay.iso, minute: Math.max(minMinute, Math.min(maxMinute - 15, minuteSnapped)) }
+  }
+
+  useEffect(() => {
+    if (!dragState) {
+      return
+    }
+    const sourceEvent = events.find((event) => event.id === dragState.eventId)
+    if (!sourceEvent) {
+      setDragState(null)
+      setDragPreview(null)
+      return
+    }
+
+    const sourceStart = parseMinutes(sourceEvent.startTime)
+    const sourceEnd = parseMinutes(sourceEvent.endTime)
+    const sourceDuration = Math.max(30, sourceEnd - sourceStart)
+
+    const onPointerMove = (event: PointerEvent) => {
+      const slot = projectPointerToSlot(event.clientX, event.clientY)
+      if (!slot) {
+        return
+      }
+      if (dragState.mode === 'move') {
+        const end = Math.min(maxMinute, slot.minute + sourceDuration)
+        setDragPreview({
+          date: slot.date,
+          startTime: toTimeLabel(slot.minute),
+          endTime: toTimeLabel(Math.max(slot.minute + 15, end)),
+        })
+        return
+      }
+
+      const nextEnd = Math.max(slot.minute, sourceStart + 15)
+      setDragPreview({
+        date: sourceEvent.date,
+        startTime: sourceEvent.startTime,
+        endTime: toTimeLabel(Math.min(maxMinute, nextEnd)),
+      })
+    }
+
+    const onPointerUp = () => {
+      if (!dragPreview) {
+        setDragState(null)
+        return
+      }
+      updateEvent(sourceEvent.id, {
+        ...sourceEvent,
+        date: dragPreview.date,
+        startTime: dragPreview.startTime,
+        endTime: dragPreview.endTime,
+      })
+      setDragState(null)
+      setDragPreview(null)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp, { once: true })
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+  }, [dragPreview, dragState, events, maxMinute, minMinute, minuteRange, updateEvent, weekDates])
+
   return (
     <div>
       <header className="flex items-end justify-between gap-4 pb-1 pt-1">
@@ -334,11 +494,13 @@ export function SchedulePage() {
 
           <div className="grid flex-1 grid-cols-7 gap-1">
             {weekDates.map((item, dayIndex) => {
-              const dayInstances = weekInstances.filter((instance) => instance.date === item.iso)
+              const dayInstances = instancesByDate[item.iso] ?? []
               return (
-                <button
+                <div
                   key={item.iso}
-                  type="button"
+                  ref={(node) => {
+                    dayColumnRefs.current[item.iso] = node
+                  }}
                   className={`relative h-[640px] overflow-hidden rounded-[10px] border border-white/10 bg-[rgba(255,255,255,0.02)] text-left ${
                     activeDayIndex === dayIndex ? 'ring-1 ring-white/25' : ''
                   }`}
@@ -357,18 +519,65 @@ export function SchedulePage() {
                     const safeEnd = Math.max(start + 30, end)
                     const top = ((start - minMinute) / minuteRange) * 100
                     const height = Math.max(7, ((safeEnd - start) / minuteRange) * 100)
+                    const width = 100 / instance.laneCount
+                    const left = width * instance.lane
+                    const isDragging = dragState?.eventId === instance.event.id
+                    const previewForEvent = isDragging ? dragPreview : null
+                    const previewStart = previewForEvent ? parseMinutes(previewForEvent.startTime) : start
+                    const previewEnd = previewForEvent ? parseMinutes(previewForEvent.endTime) : safeEnd
+                    const previewTop = ((previewStart - minMinute) / minuteRange) * 100
+                    const previewHeight = Math.max(7, ((Math.max(previewStart + 15, previewEnd) - previewStart) / minuteRange) * 100)
                     return (
                       <div
                         key={`${instance.event.id}-${instance.date}`}
-                        className={`absolute left-1 right-1 rounded-[8px] border px-2 py-1 ${eventStyleByCategory[instance.event.category]}`}
-                        style={{ top: `${top}%`, height: `${height}%` }}
+                        className={`absolute rounded-[8px] border px-2 py-1 ${eventStyleByCategory[instance.event.category]} ${
+                          isDragging ? 'opacity-90 shadow-[0_8px_18px_rgba(0,0,0,0.25)]' : ''
+                        }`}
+                        style={{
+                          top: `${previewForEvent ? previewTop : top}%`,
+                          height: `${previewForEvent ? previewHeight : height}%`,
+                          left: `calc(${left}% + 2px)`,
+                          width: `calc(${width}% - 4px)`,
+                        }}
                         title={`${instance.event.title} ${instance.startTime}-${instance.endTime}`}
+                        onPointerDown={(event) => {
+                          if (event.button !== 0) {
+                            return
+                          }
+                          event.preventDefault()
+                          setActiveDayIndex(dayIndex)
+                          setDragPreview({
+                            date: item.iso,
+                            startTime: instance.startTime,
+                            endTime: instance.endTime,
+                          })
+                          setDragState({ eventId: instance.event.id, mode: 'move' })
+                        }}
                       >
-                        <p className="truncate text-[11px] font-medium">{instance.event.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-[11px] font-medium">{instance.event.title}</p>
+                          {instance.hardConflict && <span className="rounded-full bg-warning/30 px-1.5 py-0.5 text-[9px] text-warning">!</span>}
+                        </div>
+                        <div
+                          className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize rounded-b-[8px] bg-black/15"
+                          onPointerDown={(event) => {
+                            if (event.button !== 0) {
+                              return
+                            }
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setDragPreview({
+                              date: item.iso,
+                              startTime: instance.startTime,
+                              endTime: instance.endTime,
+                            })
+                            setDragState({ eventId: instance.event.id, mode: 'resize' })
+                          }}
+                        />
                       </div>
                     )
                   })}
-                </button>
+                </div>
               )
             })}
           </div>
@@ -388,6 +597,15 @@ export function SchedulePage() {
         <h2 className="text-[18px] font-normal text-white">
           {weekDates[activeDayIndex]?.weekday} {weekDates[activeDayIndex]?.shortDate}
         </h2>
+        {activeConflictEvents.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {activeConflictEvents.map((instance) => (
+              <span key={`conflict-${instance.event.id}`} className="rounded-full border border-warning/50 bg-warning/20 px-2 py-1 text-[10px] text-warning">
+                Conflict: {instance.event.title} {instance.startTime}-{instance.endTime}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="mt-3 space-y-2">
           {activeDayInstances.map((instance) => (
             <article key={`${instance.event.id}-${instance.date}`} className="rounded-[12px] border border-border bg-[var(--surface-strong)] p-3">

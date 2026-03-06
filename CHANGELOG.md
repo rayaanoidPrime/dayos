@@ -735,3 +735,13 @@
 #### What is still left
 - Plan scheduler QoL remains pending: drag/move/resize blocks, overlap lane layout, and hard collision warnings.
 - You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.
+
+### Commit 15 - Plan Scheduler Interaction QoL
+#### What changed
+- Added drag-to-move and bottom-handle resize interactions directly on weekly schedule blocks.
+- Implemented overlap lane layout so concurrent events render side-by-side instead of hiding each other.
+- Added conflict surfacing for overlaps, including warning indicators on hard collisions and active-day conflict chips.
+
+#### What is still left
+- You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.
+- Workout template reorder/duplicate controls still need visible UI actions in Workout Builder (store support exists).
