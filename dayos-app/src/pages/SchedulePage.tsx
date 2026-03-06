@@ -1,150 +1,421 @@
-import { format, parseISO } from 'date-fns'
+import { addDays, format, startOfWeek } from 'date-fns'
 import { useMemo, useState } from 'react'
-import { useScheduleStore } from '../store/scheduleStore'
+import {
+  type CalendarEvent,
+  type EventCategory,
+  getEventInstancesForDate,
+  getEventInstancesForWeek,
+  useScheduleStore,
+} from '../store/scheduleStore'
 
-const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const dayLabelMini = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const dayLabelLong = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const timeTicks = ['08:00', '11:00', '14:00', '17:00']
+
+type RepeatEnds = 'until' | 'forever'
+
+type EventFormState = {
+  title: string
+  date: string
+  startTime: string
+  endTime: string
+  category: EventCategory
+  repeatWeekly: boolean
+  repeatEnds: RepeatEnds
+  repeatUntil: string
+  notes: string
+}
+
+const eventStyleByCategory: Record<EventCategory, string> = {
+  deep: 'border-[#C8A37E]/70 bg-[#C8A37E]/32 text-[#F5E2CC]',
+  thesis: 'border-[#7FA5D8]/70 bg-[#7FA5D8]/30 text-[#DCE8F8]',
+  health: 'border-[#7FCB92]/70 bg-[#7FCB92]/30 text-[#DFF6E5]',
+  workout: 'border-[#6ED1B6]/70 bg-[#6ED1B6]/30 text-[#D6FAEF]',
+  deadline: 'border-[#F3BD7A]/70 bg-[#F3BD7A]/30 text-[#FBE8CF]',
+  exam: 'border-[#E5939A]/70 bg-[#E5939A]/30 text-[#FADBE0]',
+  other: 'border-white/35 bg-white/15 text-white/85',
+}
+
+const legendItems: Array<{ category: EventCategory; label: string }> = [
+  { category: 'deep', label: 'Deep Work' },
+  { category: 'thesis', label: 'Thesis' },
+  { category: 'health', label: 'Health' },
+  { category: 'workout', label: 'Workout' },
+]
+
+const createDefaultForm = (date: string): EventFormState => ({
+  title: '',
+  date,
+  startTime: '08:00',
+  endTime: '10:00',
+  category: 'deep',
+  repeatWeekly: false,
+  repeatEnds: 'forever',
+  repeatUntil: date,
+  notes: '',
+})
+
+const parseMinutes = (time: string): number => {
+  const [hour, minute] = time.split(':').map(Number)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return 0
+  }
+  return hour * 60 + minute
+}
+
+const prettyCategory = (category: EventCategory): string =>
+  category.charAt(0).toUpperCase() + category.slice(1)
 
 export function SchedulePage() {
-  const recurringClasses = useScheduleStore((state) => state.recurringClasses)
   const events = useScheduleStore((state) => state.events)
   const addEvent = useScheduleStore((state) => state.addEvent)
+  const updateEvent = useScheduleStore((state) => state.updateEvent)
+  const deleteEvent = useScheduleStore((state) => state.deleteEvent)
+
+  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
+  const weekStartDate = format(weekStart, 'yyyy-MM-dd')
+  const weekDates = useMemo(
+    () =>
+      Array.from({ length: 7 }).map((_, index) => {
+        const date = addDays(weekStart, index)
+        return {
+          date,
+          iso: format(date, 'yyyy-MM-dd'),
+          shortDate: format(date, 'd MMM'),
+          weekday: dayLabelLong[index],
+        }
+      }),
+    [weekStart],
+  )
 
   const [activeDayIndex, setActiveDayIndex] = useState((new Date().getDay() + 6) % 7)
-  const [eventTitle, setEventTitle] = useState('')
-  const [eventDate, setEventDate] = useState('')
-  const [eventTime, setEventTime] = useState('18:00')
-  const [eventType, setEventType] = useState<'deadline' | 'exam' | 'other'>('deadline')
-
-  const classesByDay = useMemo(() => {
-    return dayLabels.map((_, index) =>
-      recurringClasses
-        .filter((item) => item.dayOfWeek === index + 1)
-        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    )
-  }, [recurringClasses])
-
-  const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)),
-    [events],
+  const [isDrawerOpen, setDrawerOpen] = useState(false)
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [formState, setFormState] = useState<EventFormState>(() =>
+    createDefaultForm(format(addDays(weekStart, (new Date().getDay() + 6) % 7), 'yyyy-MM-dd')),
   )
+  const [formError, setFormError] = useState('')
 
-  const activeDayClasses = classesByDay[activeDayIndex] ?? []
+  const weekInstances = useMemo(() => getEventInstancesForWeek(events, weekStartDate), [events, weekStartDate])
 
-  const activeDayEvents = useMemo(
-    () =>
-      sortedEvents.filter((event) => {
-        const date = new Date(`${event.date}T00:00:00`)
-        return ((date.getDay() + 6) % 7) === activeDayIndex
-      }),
-    [activeDayIndex, sortedEvents],
-  )
+  const activeDate = weekDates[activeDayIndex]?.iso ?? weekDates[0].iso
+  const activeDayInstances = useMemo(() => getEventInstancesForDate(events, activeDate), [activeDate, events])
 
-  const onAddEvent = () => {
-    if (!eventTitle.trim() || !eventDate) {
+  const openDrawerForCreate = (date: string) => {
+    setEditingEventId(null)
+    setFormError('')
+    setFormState(createDefaultForm(date))
+    setDrawerOpen(true)
+  }
+
+  const openDrawerForEdit = (event: CalendarEvent) => {
+    setEditingEventId(event.id)
+    setFormError('')
+    setFormState({
+      title: event.title,
+      date: event.date,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      category: event.category,
+      repeatWeekly: event.repeat !== 'none',
+      repeatEnds: event.repeat === 'weekly_until' ? 'until' : 'forever',
+      repeatUntil: event.repeatUntil ?? event.date,
+      notes: event.notes ?? '',
+    })
+    setDrawerOpen(true)
+  }
+
+  const closeDrawer = () => {
+    setDrawerOpen(false)
+    setEditingEventId(null)
+    setFormError('')
+  }
+
+  const saveEvent = () => {
+    if (!formState.title.trim()) {
+      setFormError('Event title is required.')
       return
     }
-    addEvent({
-      title: eventTitle.trim(),
-      date: eventDate,
-      time: eventTime,
-      type: eventType,
-    })
-    setEventTitle('')
+
+    if (!formState.date) {
+      setFormError('Event date is required.')
+      return
+    }
+
+    if (parseMinutes(formState.endTime) <= parseMinutes(formState.startTime)) {
+      setFormError('End time must be after start time.')
+      return
+    }
+
+    const repeat = formState.repeatWeekly ? (formState.repeatEnds === 'until' ? 'weekly_until' : 'weekly_forever') : 'none'
+    const repeatUntil =
+      repeat === 'weekly_until'
+        ? formState.repeatUntil && formState.repeatUntil >= formState.date
+          ? formState.repeatUntil
+          : formState.date
+        : null
+
+    const payload = {
+      title: formState.title.trim(),
+      date: formState.date,
+      startTime: formState.startTime,
+      endTime: formState.endTime,
+      category: formState.category,
+      repeat,
+      repeatUntil,
+      notes: formState.notes.trim() || undefined,
+    } satisfies Omit<CalendarEvent, 'id'>
+
+    if (editingEventId) {
+      updateEvent(editingEventId, payload)
+    } else {
+      addEvent(payload)
+    }
+
+    closeDrawer()
   }
+
+  const minMinute = 8 * 60
+  const maxMinute = 20 * 60
+  const minuteRange = maxMinute - minMinute
 
   return (
     <div>
-      <header className="pb-1 pt-1">
-        <span className="page-label">Weekly Schedule</span>
-        <h1 className="page-title">Plan</h1>
+      <header className="flex items-end justify-between gap-4 pb-1 pt-1">
+        <div>
+          <span className="page-label">Weekly Allocation</span>
+          <h1 className="page-title">Plan</h1>
+          <span className="page-subtitle">{format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}</span>
+        </div>
+        <button
+          type="button"
+          className="inspo-button-primary h-10 shrink-0 px-4"
+          onClick={() => openDrawerForCreate(activeDate)}
+        >
+          Add Event
+        </button>
       </header>
 
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {dayLabels.map((day, index) => (
-          <button
-            key={day}
-            type="button"
-            className={`flex h-11 min-w-11 items-center justify-center rounded-input border text-[13px] ${
-              activeDayIndex === index
-                ? 'border-white/40 bg-white/15 text-white'
-                : 'border-border bg-white/5 text-tertiary'
-            }`}
-            onClick={() => setActiveDayIndex(index)}
-          >
-            {day}
-          </button>
-        ))}
-      </div>
-
-      <section className="mt-5">
-        <h2 className="mb-3 text-[20px] font-normal text-text">Day Focus</h2>
-        <div className="space-y-2">
-          {activeDayClasses.map((item) => (
-            <div key={item.id} className="rounded-input border border-border bg-surface p-3">
-              <p className="mb-1 text-[11px] uppercase tracking-[0.05em] text-tertiary">{dayLabels[activeDayIndex]}</p>
-              <p className="text-[15px] text-text">{item.course}</p>
-              <p className="text-[13px] text-tertiary">
-                {item.startTime} - {item.endTime} ({item.room})
-              </p>
-            </div>
-          ))}
-          {activeDayClasses.length === 0 && <p className="text-sm text-tertiary">No classes scheduled.</p>}
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="mb-3 text-[20px] font-normal text-text">Events</h2>
-        <div className="space-y-2">
-          {activeDayEvents.map((event) => (
-            <div key={event.id} className="rounded-input border border-border bg-surface p-3">
-              <p className="mb-1 text-[11px] uppercase tracking-[0.05em] text-tertiary">{event.type}</p>
-              <p className="text-[15px] text-text">{event.title}</p>
-              <p className="text-[13px] text-tertiary">
-                {format(parseISO(`${event.date}T00:00:00`), 'EEE, MMM d')} at {event.time}
-              </p>
-            </div>
-          ))}
-          {activeDayEvents.length === 0 && <p className="text-sm text-tertiary">No events on this day.</p>}
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="mb-3 text-[20px] font-normal text-text">Add Event</h2>
-        <div className="space-y-2">
-          <input
-            className="inspo-field w-full"
-            placeholder="Event title"
-            value={eventTitle}
-            onChange={(event) => setEventTitle(event.target.value)}
-          />
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              className="inspo-field"
-              type="date"
-              value={eventDate}
-              onChange={(event) => setEventDate(event.target.value)}
-            />
-            <input
-              className="inspo-field"
-              type="time"
-              value={eventTime}
-              onChange={(event) => setEventTime(event.target.value)}
-            />
-            <select
-              className="inspo-field"
-              value={eventType}
-              onChange={(event) => setEventType(event.target.value as 'deadline' | 'exam' | 'other')}
+      <section className="mt-6 rounded-[18px] border border-border bg-surface p-3">
+        <div className="ml-11 grid grid-cols-7 gap-1 pb-2">
+          {weekDates.map((item, index) => (
+            <button
+              key={item.iso}
+              type="button"
+              className={`rounded-[10px] px-2 py-1 text-center text-xs ${activeDayIndex === index ? 'bg-white/10 text-white' : 'text-tertiary'}`}
+              onClick={() => setActiveDayIndex(index)}
             >
-              <option value="deadline">Deadline</option>
-              <option value="exam">Exam</option>
-              <option value="other">Other</option>
-            </select>
+              <div className="text-[13px]">{dayLabelMini[index]}</div>
+              <div className="text-[10px]">{format(item.date, 'd')}</div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <div className="relative w-9 shrink-0 text-[11px] text-tertiary">
+            {timeTicks.map((tick) => {
+              const top = ((parseMinutes(tick) - minMinute) / minuteRange) * 100
+              return (
+                <span key={tick} className="absolute -translate-y-1/2" style={{ top: `${top}%` }}>
+                  {tick}
+                </span>
+              )
+            })}
           </div>
-          <button type="button" className="inspo-button-primary h-10 w-full" onClick={onAddEvent}>
-            Add event
-          </button>
+
+          <div className="grid flex-1 grid-cols-7 gap-1">
+            {weekDates.map((item, dayIndex) => {
+              const dayInstances = weekInstances.filter((instance) => instance.date === item.iso)
+              return (
+                <button
+                  key={item.iso}
+                  type="button"
+                  className={`relative h-[640px] overflow-hidden rounded-[10px] border border-white/10 bg-[rgba(255,255,255,0.02)] text-left ${
+                    activeDayIndex === dayIndex ? 'ring-1 ring-white/25' : ''
+                  }`}
+                  onClick={() => setActiveDayIndex(dayIndex)}
+                >
+                  {timeTicks.map((tick) => {
+                    const top = ((parseMinutes(tick) - minMinute) / minuteRange) * 100
+                    return (
+                      <span key={tick} className="absolute inset-x-0 border-t border-white/[0.04]" style={{ top: `${top}%` }} />
+                    )
+                  })}
+
+                  {dayInstances.map((instance) => {
+                    const start = Math.max(minMinute, parseMinutes(instance.startTime))
+                    const end = Math.min(maxMinute, parseMinutes(instance.endTime))
+                    const safeEnd = Math.max(start + 30, end)
+                    const top = ((start - minMinute) / minuteRange) * 100
+                    const height = Math.max(7, ((safeEnd - start) / minuteRange) * 100)
+                    return (
+                      <div
+                        key={`${instance.event.id}-${instance.date}`}
+                        className={`absolute left-1 right-1 rounded-[8px] border px-2 py-1 ${eventStyleByCategory[instance.event.category]}`}
+                        style={{ top: `${top}%`, height: `${height}%` }}
+                        title={`${instance.event.title} ${instance.startTime}-${instance.endTime}`}
+                      >
+                        <p className="truncate text-[11px] font-medium">{instance.event.title}</p>
+                      </div>
+                    )
+                  })}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted">
+          {legendItems.map((item) => (
+            <div key={item.category} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full border ${eventStyleByCategory[item.category]}`} />
+              {item.label}
+            </div>
+          ))}
         </div>
       </section>
+
+      <section className="mt-6 rounded-[16px] border border-border bg-surface p-4">
+        <h2 className="text-[18px] font-normal text-white">
+          {weekDates[activeDayIndex]?.weekday} {weekDates[activeDayIndex]?.shortDate}
+        </h2>
+        <div className="mt-3 space-y-2">
+          {activeDayInstances.map((instance) => (
+            <article key={`${instance.event.id}-${instance.date}`} className="rounded-[12px] border border-border bg-[var(--surface-strong)] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] text-white">{instance.event.title}</p>
+                  <p className="text-xs text-tertiary">
+                    {instance.startTime} - {instance.endTime} • {prettyCategory(instance.event.category)}
+                  </p>
+                  {instance.event.repeat !== 'none' && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Repeats weekly
+                      {instance.event.repeat === 'weekly_until' && instance.event.repeatUntil ? ` until ${instance.event.repeatUntil}` : ' forever'}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => openDrawerForEdit(instance.event)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="inspo-button-ghost h-8 px-3 text-[11px]"
+                    onClick={() => deleteEvent(instance.event.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+          {activeDayInstances.length === 0 && <p className="text-sm text-tertiary">No events scheduled for this day.</p>}
+        </div>
+      </section>
+
+      {isDrawerOpen && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-3 backdrop-blur-[1px]" onClick={closeDrawer}>
+          <div
+            className="max-h-[88vh] w-full max-w-[560px] overflow-y-auto rounded-[22px] border border-border bg-bg p-4 md:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[20px] font-normal text-white">{editingEventId ? 'Edit Event' : 'Add Event'}</h2>
+              <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={closeDrawer}>
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                className="inspo-field w-full"
+                placeholder="Event title"
+                value={formState.title}
+                onChange={(event) => setFormState((state) => ({ ...state, title: event.target.value }))}
+              />
+
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  className="inspo-field"
+                  type="date"
+                  value={formState.date}
+                  onChange={(event) => setFormState((state) => ({ ...state, date: event.target.value, repeatUntil: event.target.value }))}
+                />
+                <input
+                  className="inspo-field"
+                  type="time"
+                  value={formState.startTime}
+                  onChange={(event) => setFormState((state) => ({ ...state, startTime: event.target.value }))}
+                />
+                <input
+                  className="inspo-field"
+                  type="time"
+                  value={formState.endTime}
+                  onChange={(event) => setFormState((state) => ({ ...state, endTime: event.target.value }))}
+                />
+              </div>
+
+              <select
+                className="inspo-field w-full"
+                value={formState.category}
+                onChange={(event) => setFormState((state) => ({ ...state, category: event.target.value as EventCategory }))}
+              >
+                <option value="deep">Deep Work</option>
+                <option value="thesis">Thesis</option>
+                <option value="health">Health</option>
+                <option value="workout">Workout</option>
+                <option value="deadline">Deadline</option>
+                <option value="exam">Exam</option>
+                <option value="other">Other</option>
+              </select>
+
+              <div className="rounded-input border border-border bg-surface p-3">
+                <label className="flex items-center gap-2 text-sm text-white">
+                  <input
+                    type="checkbox"
+                    checked={formState.repeatWeekly}
+                    onChange={(event) => setFormState((state) => ({ ...state, repeatWeekly: event.target.checked }))}
+                  />
+                  Repeat weekly
+                </label>
+                {formState.repeatWeekly && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <select
+                      className="inspo-field"
+                      value={formState.repeatEnds}
+                      onChange={(event) => setFormState((state) => ({ ...state, repeatEnds: event.target.value as RepeatEnds }))}
+                    >
+                      <option value="forever">Forever</option>
+                      <option value="until">Until date</option>
+                    </select>
+                    <input
+                      className="inspo-field"
+                      type="date"
+                      disabled={formState.repeatEnds !== 'until'}
+                      value={formState.repeatUntil}
+                      onChange={(event) => setFormState((state) => ({ ...state, repeatUntil: event.target.value }))}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <textarea
+                className="inspo-textarea h-20 w-full"
+                placeholder="Optional notes"
+                value={formState.notes}
+                onChange={(event) => setFormState((state) => ({ ...state, notes: event.target.value }))}
+              />
+
+              {formError && <p className="text-xs text-warning">{formError}</p>}
+
+              <button type="button" className="inspo-button-primary h-11 w-full" onClick={saveEvent}>
+                {editingEventId ? 'Save changes' : 'Add event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

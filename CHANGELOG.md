@@ -541,3 +541,27 @@
 - Updated the You page header area to show a profile avatar circle with the user name/email-prefix and account email.
 - Moved sync/account actions next to the profile block, including `Sync Account`, sign-in/sign-out, and queue status.
 - Removed the Sunday Planning section from the You page.
+
+## 2026-03-06 (Current Work Session)
+
+### Commit 4 - Plan Weekly Allocation Map + Recurring Event Drawer
+#### What changed
+- Rebuilt the `Plan` tab into a weekly time-block map (Mon-Sun columns, time axis, category-colored event blocks) following the provided visual reference.
+- Replaced inline event form with a tasteful `Add Event` CTA that opens a bottom drawer.
+- Expanded schedule data model to support:
+  - start + end time,
+  - event categories (`deep`, `thesis`, `health`, `workout`, `deadline`, `exam`, `other`),
+  - recurrence (`none`, weekly until date, weekly forever),
+  - full CRUD (`add`, `edit`, `delete`).
+- Added recurrence-aware event instance helpers for daily/weekly rendering and next-event lookup.
+- Updated Today’s next-event lookup to read from the new schedule model.
+
+#### What is still left
+- Wire a custom workout builder to workout events so selected workout templates feed Today workout rows on non-rest days.
+- Add nutrition "left to hit" stacked bars and calories-left summary above Today meal logs.
+- Add persistent macro-goal editor in `You` page and wire it to Today targets.
+- Fine-tune Plan map overlap behavior for simultaneous events (currently basic single-column block rendering).
+- Brainstormed next-session enrichments:
+  - drag-to-resize / drag-to-move schedule blocks,
+  - conflict warnings when overlapping high-priority allocations,
+  - weekly reflection insights linking planned vs completed time by category.

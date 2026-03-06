@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { db, saveImportedMeals } from '../lib/db'
 import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
-import { useScheduleStore } from '../store/scheduleStore'
+import { findNextEventInstance, useScheduleStore } from '../store/scheduleStore'
 import { useStudyStore } from '../store/studyStore'
 import { useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
@@ -251,10 +251,7 @@ export function TodayPage() {
   )
 
   const nextEvent = useMemo(
-    () =>
-      [...events]
-        .filter((event) => event.date >= today)
-        .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`))[0],
+    () => findNextEventInstance(events, today, format(new Date(), 'HH:mm')),
     [events, today],
   )
 
@@ -268,7 +265,7 @@ export function TodayPage() {
         key: 'study',
         title: primaryStudy ? `${primaryStudy.subject}${primaryStudy.topic ? `: ${primaryStudy.topic}` : ''}` : 'No study block planned',
         meta: primaryStudy
-          ? `Deep Work • ${primaryStudy.targetMins}m • ${primaryStudy.pomodorosDone} pomodoros`
+          ? `Deep Work  -  ${primaryStudy.targetMins}m  -  ${primaryStudy.pomodorosDone} pomodoros`
           : 'Add a study block in Study module',
       },
       {
@@ -276,21 +273,21 @@ export function TodayPage() {
         title: primaryResearchTask?.title ?? 'No research task yet',
         meta: primaryResearchTask
           ? primaryResearchTask.status === 'in_progress'
-            ? 'Research • In Progress'
+            ? 'Research  -  In Progress'
             : primaryResearchTask.status === 'done'
-              ? 'Research • Done'
-              : 'Research • To Do'
+              ? 'Research  -  Done'
+              : 'Research  -  To Do'
           : 'Create a research task in Research tab',
       },
       {
         key: 'journal',
-        title: journalEntry?.topPriorityTomorrow || nextEvent?.title || 'No admin/journal priority yet',
+        title: journalEntry?.topPriorityTomorrow || nextEvent?.event.title || 'No admin/journal priority yet',
         meta: journalEntry?.topPriorityTomorrow
-          ? 'Journal • Tomorrow Priority'
+          ? 'Journal  -  Tomorrow Priority'
           : nextEvent
-            ? `${nextEvent.type.toUpperCase()} • ${nextEvent.date} ${nextEvent.time}`
+            ? nextEvent.event.category.toUpperCase() + '  -  ' + nextEvent.date + ' ' + nextEvent.startTime
             : todayClass
-              ? `${todayClass.course} • ${todayClass.startTime}-${todayClass.endTime}`
+              ? `${todayClass.course}  -  ${todayClass.startTime}-${todayClass.endTime}`
               : 'Add a class/event in Plan tab',
       },
       {
@@ -298,8 +295,8 @@ export function TodayPage() {
         title: `Workout: ${toSessionTitle(sessionType)}`,
         meta:
           workoutLog?.sessionType === 'rest'
-            ? 'Recovery • Rest day'
-            : `Health • ${workoutLog?.exercises.length ?? 0} exercises`,
+            ? 'Recovery  -  Rest day'
+            : `Health  -  ${workoutLog?.exercises.length ?? 0} exercises`,
       },
     ],
     [journalEntry, nextEvent, primaryResearchTask, primaryStudy, sessionType, todayClass, workoutLog?.exercises.length, workoutLog?.sessionType],
@@ -608,3 +605,5 @@ export function TodayPage() {
     </div>
   )
 }
+
+
