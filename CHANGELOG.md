@@ -673,3 +673,14 @@
   - keyboard-first interactions for drawers/tables,
   - stronger focus states + larger hit targets for mobile controls,
   - reduced-motion option for core animated surfaces.
+
+### Commit 9 - Feature Sweep Audit
+#### What changed
+- Added `dayos-app/docs/feature-sweep.md` that catalogs every screen and store, details current capabilities, and highlights cohesion gaps.
+- Logged missing wiring paths (project events→Research, inline meal/worklog edits, research worklogs/export).
+- Captured ease-of-life discovery notes (meal edits, worklog capture, conflict warnings, weekly reports).
+
+#### What is still left
+- Wire `project` calendar events to the active research project and show those deadlines in Today/You.
+- Enable inline edit/delete for meals and add a lightweight project worklog capture flow.
+- Validate sync, keyboard, and accessibility needs before moving from planning to implementation.
