@@ -37,6 +37,9 @@ export function YouPage() {
   const setNutritionTargets = useTodayStore((state) => state.setNutritionTargets)
   const weeklyGoalThresholds = useTodayStore((state) => state.weeklyGoalThresholds)
   const setWeeklyGoalThreshold = useTodayStore((state) => state.setWeeklyGoalThreshold)
+  const weeklyReminderSettings = useTodayStore((state) => state.weeklyReminderSettings)
+  const setWeeklyReminderSettings = useTodayStore((state) => state.setWeeklyReminderSettings)
+  const markWeeklyReminderSent = useTodayStore((state) => state.markWeeklyReminderSent)
   const studyByDate = useStudyStore((state) => state.byDate)
   const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
 
@@ -64,6 +67,8 @@ export function YouPage() {
   const [targetFats, setTargetFats] = useState(String(activeNutritionTarget.fatsG))
   const [goalStatus, setGoalStatus] = useState('')
   const [weeklyStatus, setWeeklyStatus] = useState('')
+  const [reminderStatus, setReminderStatus] = useState('')
+  const [showInAppReminder, setShowInAppReminder] = useState(true)
 
   const profileName = useMemo(() => getProfileName(sessionEmail), [sessionEmail])
   const profileInitial = useMemo(() => profileName.charAt(0).toUpperCase(), [profileName])
@@ -176,18 +181,33 @@ export function YouPage() {
       nutrition: doneCount('nutrition'),
     }
 
-    const alerts = (Object.keys(byKey) as Array<keyof typeof byKey>)
-      .map((key) => {
+    const statusByKey = Object.fromEntries(
+      (Object.keys(byKey) as Array<keyof typeof byKey>).map((key) => {
         const target = weeklyGoalThresholds[key]
         const done = byKey[key]
         if (done >= target) {
-          return `${key}: met (${done}/${target})`
+          return [key, { key, done, target, met: true }] as const
         }
-        return `${key}: below target (${done}/${target})`
-      })
+        return [key, { key, done, target, met: false }] as const
+      }),
+    ) as Record<keyof typeof byKey, { key: keyof typeof byKey; done: number; target: number; met: boolean }>
 
-    return { start, end, byKey, alerts }
+    const alerts = (Object.keys(statusByKey) as Array<keyof typeof statusByKey>).map((key) => {
+      const item = statusByKey[key]
+      return item.met ? `${item.key}: met (${item.done}/${item.target})` : `${item.key}: below target (${item.done}/${item.target})`
+    })
+
+    const belowTarget = (Object.keys(statusByKey) as Array<keyof typeof statusByKey>).filter((key) => !statusByKey[key].met)
+    const score = Math.round((Object.values(statusByKey).filter((item) => item.met).length / Object.keys(statusByKey).length) * 100)
+
+    return { start, end, byKey, alerts, statusByKey, belowTarget, score }
   }, [completionByDate, weeklyGoalThresholds])
+
+  useEffect(() => {
+    const now = new Date()
+    const shouldBeVisible = now.getHours() >= weeklyReminderSettings.hour24
+    setShowInAppReminder(shouldBeVisible)
+  }, [weeklyReminderSettings.hour24])
 
   const refreshSyncInfo = async () => {
     const [count, activeEmail] = await Promise.all([db.syncQueue.count(), getSessionEmail()])
@@ -256,6 +276,62 @@ export function YouPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!weeklyReminderSettings.enabled || !weeklyReminderSettings.push || weeklyReview.belowTarget.length === 0) {
+      return
+    }
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      return
+    }
+
+    const now = new Date()
+    if (now.getHours() < weeklyReminderSettings.hour24) {
+      return
+    }
+
+    const todayKey = format(now, 'yyyy-MM-dd')
+    if (weeklyReminderSettings.lastPushSentAt?.startsWith(todayKey)) {
+      return
+    }
+
+    const message = `Below target: ${weeklyReview.belowTarget.join(', ')}`
+    new Notification('Weekly goals reminder', {
+      body: message,
+    })
+    markWeeklyReminderSent(now.toISOString())
+  }, [markWeeklyReminderSent, weeklyReminderSettings, weeklyReview.belowTarget])
+
+  const sendReminderNow = async () => {
+    if (weeklyReview.belowTarget.length === 0) {
+      setReminderStatus('No reminder sent. All weekly targets are currently met.')
+      return
+    }
+
+    if (typeof Notification === 'undefined') {
+      setReminderStatus('Browser notifications are not supported on this device.')
+      return
+    }
+
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setReminderStatus('Notification permission was not granted.')
+        return
+      }
+    }
+
+    if (Notification.permission === 'granted') {
+      new Notification('Weekly goals reminder', {
+        body: `Below target: ${weeklyReview.belowTarget.join(', ')}`,
+      })
+      markWeeklyReminderSent(new Date().toISOString())
+      setReminderStatus('Push reminder sent.')
+      return
+    }
+
+    setReminderStatus('Enable notifications in browser settings to send push reminders.')
+  }
+
   return (
     <div>
       <header className="pb-1 pt-1">
@@ -321,9 +397,12 @@ export function YouPage() {
       <section className="mt-5">
         <span className="page-label">Weekly Review</span>
         <div className="mt-2 rounded-input border border-border bg-surface p-4">
-          <p className="text-xs text-tertiary">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-tertiary">
             {weeklyReview.start} to {weeklyReview.end}
-          </p>
+            </p>
+            <p className="text-xs text-white">Score: {weeklyReview.score}%</p>
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {(['study', 'research', 'workout', 'nutrition'] as const).map((key) => (
               <div key={key} className="rounded-input border border-white/10 bg-[var(--surface-strong)] p-3">
@@ -351,6 +430,64 @@ export function YouPage() {
                 {alert}
               </p>
             ))}
+          </div>
+          {weeklyReminderSettings.enabled && weeklyReminderSettings.inApp && weeklyReview.belowTarget.length > 0 && showInAppReminder && (
+            <div className="mt-3 rounded-input border border-warning/45 bg-warning/10 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-warning">
+                  Reminder: You are below target on {weeklyReview.belowTarget.join(', ')}. Plan one catch-up block today.
+                </p>
+                <button type="button" className="inspo-button-ghost h-7 px-2 text-[10px]" onClick={() => setShowInAppReminder(false)}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="mt-3 rounded-input border border-white/10 bg-[var(--surface-strong)] p-3">
+            <p className="text-xs uppercase tracking-[0.05em] text-tertiary">Reminder Settings</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-muted md:grid-cols-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={weeklyReminderSettings.enabled}
+                  onChange={(event) => setWeeklyReminderSettings({ enabled: event.target.checked })}
+                />
+                Enable weekly reminders
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={weeklyReminderSettings.inApp}
+                  onChange={(event) => setWeeklyReminderSettings({ inApp: event.target.checked })}
+                />
+                In-app reminder banner
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={weeklyReminderSettings.push}
+                  onChange={(event) => setWeeklyReminderSettings({ push: event.target.checked })}
+                />
+                Push notification reminder
+              </label>
+              <label className="flex items-center gap-2">
+                Reminder hour
+                <input
+                  className="inspo-field ml-2 w-20"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={weeklyReminderSettings.hour24}
+                  onChange={(event) => setWeeklyReminderSettings({ hour24: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => void sendReminderNow()}>
+                Send Test Reminder
+              </button>
+              {reminderStatus && <p className="text-xs text-tertiary">{reminderStatus}</p>}
+            </div>
           </div>
           {weeklyStatus && <p className="mt-2 text-xs text-tertiary">{weeklyStatus}</p>}
         </div>

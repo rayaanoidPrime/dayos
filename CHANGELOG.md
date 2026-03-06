@@ -772,4 +772,15 @@
 
 #### What is still left
 - Add optional push/in-app reminders tied to below-target weekly alerts.
-- Add weekly summary export to accompany the review card.
+
+### Commit 19 - You Reminder QoL (In-App + Push)
+#### What changed
+- Added weekly reminder settings in persisted store: enable toggle, in-app toggle, push toggle, reminder hour, and last push sent timestamp guard.
+- Upgraded You weekly review with a richer score summary and status mapping that cleanly derives below-target metrics.
+- Implemented optional reminder delivery tied to below-target metrics:
+- In-app reminder banner with dismiss action when reminder conditions are met.
+- Browser push reminder logic (hour-gated, once per day guard) plus a manual “Send Test Reminder” action with permission handling.
+
+#### What is still left
+- Add weekly summary export from You page (CSV/markdown snapshot) to complement reminders.
+

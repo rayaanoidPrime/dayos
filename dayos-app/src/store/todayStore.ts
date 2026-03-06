@@ -36,6 +36,14 @@ type WeeklyGoalThresholds = {
   nutrition: number
 }
 
+type WeeklyReminderSettings = {
+  enabled: boolean
+  inApp: boolean
+  push: boolean
+  hour24: number
+  lastPushSentAt?: string
+}
+
 type DayCardState = Partial<Record<TodayCardKey, boolean>>
 
 type TodayState = {
@@ -45,6 +53,7 @@ type TodayState = {
   nutritionTargets: NutritionTargetsByType
   mealTemplates: MealTemplate[]
   weeklyGoalThresholds: WeeklyGoalThresholds
+  weeklyReminderSettings: WeeklyReminderSettings
   setCardCollapsed: (date: string, key: TodayCardKey, collapsed: boolean) => void
   toggleCardComplete: (date: string, key: TodayCardKey) => void
   addWater: (date: string, delta: number) => void
@@ -52,6 +61,8 @@ type TodayState = {
   addMealTemplate: (template: Omit<MealTemplate, 'id'>) => void
   setNutritionTargets: (type: NutritionDayType, targets: NutritionTargets) => void
   setWeeklyGoalThreshold: (key: keyof WeeklyGoalThresholds, value: number) => void
+  setWeeklyReminderSettings: (payload: Partial<Omit<WeeklyReminderSettings, 'lastPushSentAt'>>) => void
+  markWeeklyReminderSent: (timestamp: string) => void
 }
 
 const randomId = () =>
@@ -100,6 +111,30 @@ const normalizeNutritionTargets = (input: unknown): NutritionTargetsByType => {
   }
 }
 
+const defaultReminderSettings: WeeklyReminderSettings = {
+  enabled: false,
+  inApp: true,
+  push: false,
+  hour24: 19,
+}
+
+const normalizeReminderSettings = (input: unknown): WeeklyReminderSettings => {
+  if (!input || typeof input !== 'object') {
+    return { ...defaultReminderSettings }
+  }
+  const raw = input as Partial<WeeklyReminderSettings>
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : defaultReminderSettings.enabled,
+    inApp: typeof raw.inApp === 'boolean' ? raw.inApp : defaultReminderSettings.inApp,
+    push: typeof raw.push === 'boolean' ? raw.push : defaultReminderSettings.push,
+    hour24:
+      typeof raw.hour24 === 'number' && Number.isFinite(raw.hour24)
+        ? Math.max(0, Math.min(23, Math.round(raw.hour24)))
+        : defaultReminderSettings.hour24,
+    lastPushSentAt: typeof raw.lastPushSentAt === 'string' ? raw.lastPushSentAt : undefined,
+  }
+}
+
 export const useTodayStore = create<TodayState>()(
   persist(
     (set) => ({
@@ -116,6 +151,7 @@ export const useTodayStore = create<TodayState>()(
         workout: 4,
         nutrition: 6,
       },
+      weeklyReminderSettings: { ...defaultReminderSettings },
       setCardCollapsed: (date, key, collapsed) =>
         set((state) => ({
           collapsedByDate: {
@@ -182,6 +218,20 @@ export const useTodayStore = create<TodayState>()(
             [key]: Math.max(0, Math.min(7, Math.round(value))),
           },
         })),
+      setWeeklyReminderSettings: (payload) =>
+        set((state) => ({
+          weeklyReminderSettings: normalizeReminderSettings({
+            ...state.weeklyReminderSettings,
+            ...payload,
+          }),
+        })),
+      markWeeklyReminderSent: (timestamp) =>
+        set((state) => ({
+          weeklyReminderSettings: {
+            ...state.weeklyReminderSettings,
+            lastPushSentAt: timestamp,
+          },
+        })),
     }),
     {
       name: 'dayos-today-state',
@@ -191,6 +241,9 @@ export const useTodayStore = create<TodayState>()(
           ...currentState,
           ...incoming,
           nutritionTargets: normalizeNutritionTargets(incoming.nutritionTargets ?? currentState.nutritionTargets),
+          weeklyReminderSettings: normalizeReminderSettings(
+            incoming.weeklyReminderSettings ?? currentState.weeklyReminderSettings,
+          ),
         }
       },
     },
