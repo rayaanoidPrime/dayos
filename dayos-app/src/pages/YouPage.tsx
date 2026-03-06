@@ -1,6 +1,6 @@
-﻿import { format, startOfWeek } from 'date-fns'
+import { format, startOfWeek } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
-import { db, upsertSundayPlan } from '../lib/db'
+import { db } from '../lib/db'
 import { computeCurrentStreak, computeDayStatuses } from '../lib/streak'
 import { flushSyncQueue } from '../lib/sync'
 import { getSessionEmail, hasSupabaseConfig, signInWithGoogle, signOutSession, supabase } from '../lib/supabase'
@@ -20,11 +20,17 @@ function weekBounds(offsetWeeks: number) {
   }
 }
 
+function getProfileName(email: string | null): string {
+  if (!email) {
+    return 'Guest'
+  }
+  const [localPart] = email.split('@')
+  return localPart || email
+}
+
 export function YouPage() {
   const examMode = useUIStore((state) => state.examMode)
   const setExamMode = useUIStore((state) => state.setExamMode)
-  const sundayPlan = useUIStore((state) => state.sundayPlan)
-  const setSundayPlan = useUIStore((state) => state.setSundayPlan)
 
   const completionByDate = useTodayStore((state) => state.completionByDate)
   const studyByDate = useStudyStore((state) => state.byDate)
@@ -32,15 +38,13 @@ export function YouPage() {
 
   const [examTitle, setExamTitle] = useState(examMode.examTitle)
   const [examDate, setExamDate] = useState(examMode.examDate)
-  const [workoutIntentions, setWorkoutIntentions] = useState(sundayPlan?.workoutIntentions ?? '')
-  const [studyIntentions, setStudyIntentions] = useState(sundayPlan?.studyIntentions ?? '')
-  const [researchIntentions, setResearchIntentions] = useState(sundayPlan?.researchIntentions ?? '')
-  const [weeklyGoal, setWeeklyGoal] = useState(sundayPlan?.weeklyGoal ?? '')
-  const [planStatus, setPlanStatus] = useState('')
   const [authStatus, setAuthStatus] = useState('')
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncStatus, setSyncStatus] = useState('')
+
+  const profileName = useMemo(() => getProfileName(sessionEmail), [sessionEmail])
+  const profileInitial = useMemo(() => profileName.charAt(0).toUpperCase(), [profileName])
 
   const dashboard = useMemo(() => {
     const { start: currentStart, end: currentEnd } = weekBounds(0)
@@ -132,28 +136,21 @@ export function YouPage() {
     }
   }, [completionByDate, studyByDate, workoutLogsByDate])
 
-  const saveSundayPlan = async () => {
-    const weekStartDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-    await upsertSundayPlan({
-      weekStartDate,
-      workoutIntentions,
-      studyIntentions,
-      researchIntentions,
-      weeklyGoal,
-    })
-    setSundayPlan({
-      workoutIntentions,
-      studyIntentions,
-      researchIntentions,
-      weeklyGoal,
-    })
-    setPlanStatus(`Saved plan for week starting ${weekStartDate}.`)
-  }
-
   const refreshSyncInfo = async () => {
     const [count, activeEmail] = await Promise.all([db.syncQueue.count(), getSessionEmail()])
     setQueueCount(count)
     setSessionEmail(activeEmail)
+  }
+
+  const syncNow = async () => {
+    const result = await flushSyncQueue()
+    if (result.reason) {
+      setSyncStatus(result.reason)
+    } else {
+      const suffix = result.lastError ? ` Last error: ${result.lastError}` : ''
+      setSyncStatus(`Synced ${result.processed} item(s), failed ${result.failed}.${suffix}`)
+    }
+    await refreshSyncInfo()
   }
 
   useEffect(() => {
@@ -178,11 +175,66 @@ export function YouPage() {
   return (
     <div>
       <header className="pb-1 pt-1">
-        <span className="page-label">System Profile</span>
-        <h1 className="page-title">Metrics &amp; Focus</h1>
+        <span className="page-label">You</span>
+        <h1 className="page-title">Profile &amp; Metrics</h1>
       </header>
 
-      <section className="mt-3">
+      <section className="mt-4 rounded-input border border-border bg-surface p-4">
+        {!hasSupabaseConfig && <p className="mb-3 text-xs text-warning">Supabase env vars are missing in this build.</p>}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-[var(--surface-strong)] text-sm font-semibold text-white">
+              {profileInitial}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-base text-text">{profileName}</p>
+              <p className="truncate text-xs text-tertiary">{sessionEmail ?? 'Not signed in'}</p>
+            </div>
+          </div>
+          <button type="button" className="inspo-button-primary h-10 px-4" onClick={() => void syncNow()}>
+            Sync Account
+          </button>
+        </div>
+
+        {!sessionEmail && (
+          <div className="mt-3 rounded-input border border-border bg-[var(--surface-strong)] p-3 text-xs text-muted">
+            <p className="uppercase tracking-[0.05em] text-tertiary">First-time sign in</p>
+            <p className="mt-1">1. Click "Sign in with Google".</p>
+            <p>2. Complete Google consent.</p>
+            <p>3. Return to this app tab and account status refreshes automatically.</p>
+          </div>
+        )}
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className="inspo-button-ghost h-11"
+            onClick={async () => {
+              const result = await signInWithGoogle()
+              setAuthStatus(result.error ? `Sign in error: ${result.error}` : 'Continue in Google to finish sign-in.')
+            }}
+          >
+            Sign in with Google
+          </button>
+          <button
+            type="button"
+            className="inspo-button-ghost h-11"
+            onClick={async () => {
+              const result = await signOutSession()
+              setAuthStatus(result.error ? `Sign out error: ${result.error}` : 'Signed out.')
+              await refreshSyncInfo()
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+
+        <p className="mt-3 text-xs text-muted">Pending sync queue: {queueCount}</p>
+        {authStatus && <p className="mt-2 text-xs text-tertiary">{authStatus}</p>}
+        {syncStatus && <p className="mt-1 text-xs text-tertiary">{syncStatus}</p>}
+      </section>
+
+      <section className="mt-5">
         <span className="page-label">Weekly Consistency</span>
         <div className="mt-2 flex h-20 items-end gap-1 rounded-input border border-border bg-surface p-3">
           {dashboard.weeklyConsistencyBars.map((value, index) => (
@@ -245,65 +297,6 @@ export function YouPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-[20px] font-normal text-text">Account &amp; Sync</h2>
-        {!hasSupabaseConfig && <p className="mb-2 text-xs text-warning">Supabase env vars are missing in this build.</p>}
-        <p className="mb-3 text-xs text-tertiary">Account: {sessionEmail ?? 'Not signed in'}</p>
-        {!sessionEmail && (
-          <div className="mb-3 rounded-input border border-border bg-surface p-3 text-xs text-muted">
-            <p className="uppercase tracking-[0.05em] text-tertiary">First-time sign in</p>
-            <p className="mt-1">1. Click "Sign in with Google".</p>
-            <p>2. Complete Google consent.</p>
-            <p>3. Return to this app tab and the account status refreshes automatically.</p>
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            className="inspo-button-ghost h-12"
-            onClick={async () => {
-              const result = await signInWithGoogle()
-              setAuthStatus(result.error ? `Sign in error: ${result.error}` : 'Continue in Google to finish sign-in.')
-            }}
-          >
-            Sign in with Google
-          </button>
-          <button
-            type="button"
-            className="inspo-button-ghost h-12"
-            onClick={async () => {
-              const result = await signOutSession()
-              setAuthStatus(result.error ? `Sign out error: ${result.error}` : 'Signed out.')
-              await refreshSyncInfo()
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-        {authStatus && <p className="mt-2 text-xs text-tertiary">{authStatus}</p>}
-
-        <div className="mt-3 rounded-input border border-border bg-surface p-3">
-          <p className="text-xs text-muted">Pending sync queue: {queueCount}</p>
-          <button
-            type="button"
-            className="inspo-button-primary mt-2 h-10 w-full"
-            onClick={async () => {
-              const result = await flushSyncQueue()
-              if (result.reason) {
-                setSyncStatus(result.reason)
-              } else {
-                const suffix = result.lastError ? ` Last error: ${result.lastError}` : ''
-                setSyncStatus(`Synced ${result.processed} item(s), failed ${result.failed}.${suffix}`)
-              }
-              await refreshSyncInfo()
-            }}
-          >
-            Flush queue now
-          </button>
-          {syncStatus && <p className="mt-2 text-xs text-tertiary">{syncStatus}</p>}
-        </div>
-      </section>
-
-      <section className="mt-8">
         <h2 className="mb-3 text-[20px] font-normal text-text">Exam Mode</h2>
         <div className="space-y-2">
           <input
@@ -325,40 +318,6 @@ export function YouPage() {
           >
             {examMode.active ? 'Disable' : 'Enable'} Exam Mode
           </button>
-        </div>
-      </section>
-
-      <section className="mb-2 mt-8">
-        <h2 className="mb-3 text-[20px] font-normal text-text">Sunday Planning</h2>
-        <div className="space-y-2">
-          <input
-            className="inspo-field w-full"
-            value={workoutIntentions}
-            onChange={(event) => setWorkoutIntentions(event.target.value)}
-            placeholder="Workout intentions"
-          />
-          <input
-            className="inspo-field w-full"
-            value={studyIntentions}
-            onChange={(event) => setStudyIntentions(event.target.value)}
-            placeholder="Study intentions"
-          />
-          <input
-            className="inspo-field w-full"
-            value={researchIntentions}
-            onChange={(event) => setResearchIntentions(event.target.value)}
-            placeholder="Research intentions"
-          />
-          <input
-            className="inspo-field w-full"
-            value={weeklyGoal}
-            onChange={(event) => setWeeklyGoal(event.target.value)}
-            placeholder="Weekly goal"
-          />
-          <button type="button" className="inspo-button-ghost h-12 w-full" onClick={() => void saveSundayPlan()}>
-            Save weekly plan
-          </button>
-          {planStatus && <p className="text-xs text-success">{planStatus}</p>}
         </div>
       </section>
     </div>

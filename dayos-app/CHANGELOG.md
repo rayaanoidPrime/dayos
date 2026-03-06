@@ -12,3 +12,8 @@
 - Removed the Research page task board section to simplify the page.
 - Reworked manual paper entry into a dedicated drawer opened via a single `Manual Entry` button.
 - Kept the main Research surface focused on arXiv import, filters, and the paper log table.
+
+### Commit 3
+- Updated the You page header area to show a profile avatar circle with the user name/email-prefix and account email.
+- Moved sync/account actions next to the profile block, including `Sync Account`, sign-in/sign-out, and queue status.
+- Removed the Sunday Planning section from the You page.
