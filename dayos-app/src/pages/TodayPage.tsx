@@ -176,6 +176,7 @@ export function TodayPage() {
   const recurringClasses = useScheduleStore((state) => state.recurringClasses)
   const events = useScheduleStore((state) => state.events)
   const tasks = useResearchStore((state) => state.tasks)
+  const activeProjectId = useResearchStore((state) => state.activeProjectId)
   const papers = useResearchStore((state) => state.papers)
   const studyByDate = useStudyStore((state) => state.byDate)
   const ensureStudyDate = useStudyStore((state) => state.ensureDate)
@@ -389,8 +390,9 @@ export function TodayPage() {
   )
 
   const primaryStudy = studyBlocks[0]
+  const activeProjectTasks = activeProjectId ? tasks.filter(t => t.projectId === activeProjectId) : tasks
   const primaryResearchTask =
-    tasks.find((task) => task.status === 'in_progress') ?? tasks.find((task) => task.status === 'todo') ?? tasks[0]
+    activeProjectTasks.find((task) => task.status === 'in_progress') ?? activeProjectTasks.find((task) => task.status === 'todo') ?? activeProjectTasks[0]
 
   const dashboardTasks = useMemo<DashboardTask[]>(
     () => [

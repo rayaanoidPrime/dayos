@@ -1,5 +1,4 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { ScratchpadFab } from './ScratchpadFab'
 
 const tabs = [
   {
@@ -56,8 +55,6 @@ export function AppShell() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto px-4 pb-24 pt-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-10 md:pt-10">
           <Outlet />
         </main>
-
-        <ScratchpadFab />
       </div>
 
       <nav className="fixed bottom-4 left-1/2 z-50 h-[60px] w-[calc(100%-2rem)] max-w-[400px] -translate-x-1/2 rounded-full border border-border bg-[rgba(20,16,14,0.85)] px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-[20px]">

@@ -8,6 +8,7 @@ import { useStudyStore } from '../store/studyStore'
 import { cardKeys, useTodayStore } from '../store/todayStore'
 import { useUIStore } from '../store/uiStore'
 import { useWorkoutStore } from '../store/workoutStore'
+import { useResearchStore } from '../store/researchStore'
 
 function weekBounds(offsetWeeks: number) {
   const start = startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -42,6 +43,9 @@ export function YouPage() {
   const markWeeklyReminderSent = useTodayStore((state) => state.markWeeklyReminderSent)
   const studyByDate = useStudyStore((state) => state.byDate)
   const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
+
+  const { projects, activeProjectId, tasks, papers, worklogs } = useResearchStore()
+  const activeProject = useMemo(() => projects.find((p) => p.id === activeProjectId) ?? projects[0], [projects, activeProjectId])
 
   const [examTitle, setExamTitle] = useState(examMode.examTitle)
   const [examDate, setExamDate] = useState(examMode.examDate)
@@ -492,6 +496,34 @@ export function YouPage() {
           {weeklyStatus && <p className="mt-2 text-xs text-tertiary">{weeklyStatus}</p>}
         </div>
       </section>
+
+      {activeProject && (
+        <section className="mt-5">
+          <span className="page-label">Research</span>
+          <div className="mt-2 rounded-input border border-border bg-surface p-4">
+            <h3 className="mb-4 flex items-center justify-between text-[16px] text-white">
+              <span className="truncate">{activeProject.name}</span>
+              <span className="shrink-0 text-[11px] rounded bg-white/10 px-2 py-0.5 uppercase tracking-[0.05em] text-tertiary">Active Project</span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded border border-white/5 bg-[var(--surface-strong)] p-3 text-center">
+                <p className="text-xl text-white">{tasks.filter((t) => t.projectId === activeProject.id && t.status !== 'done').length}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Open Tasks</p>
+              </div>
+              <div className="rounded border border-white/5 bg-[var(--surface-strong)] p-3 text-center">
+                <p className="text-xl text-white">{papers.filter((p) => p.projectId === activeProject.id && p.status === 'reading').length}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Reading</p>
+              </div>
+              <div className="rounded border border-white/5 bg-[var(--surface-strong)] p-3 text-center">
+                <p className="text-xl text-white">
+                  {worklogs.filter((w) => w.projectId === activeProject.id && w.date >= weekBounds(0).start).reduce((acc, w) => acc + w.hours, 0)}
+                </p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-tertiary">Hours (Wk)</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mt-5">
         <span className="page-label">Weekly Consistency</span>

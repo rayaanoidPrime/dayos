@@ -13,6 +13,11 @@ export default {
         tertiary: 'rgba(255,255,255,0.45)',
         success: '#8ad6b2',
         warning: '#f8cf8f',
+        cream: '#EAE0D5',
+        creamMuted: '#9A9188',
+        sage: '#8FA895',
+        amber: '#D4A373',
+        divider: '#363028',
       },
       borderRadius: {
         card: '12px',
