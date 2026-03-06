@@ -745,3 +745,11 @@
 #### What is still left
 - You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.
 - Workout template reorder/duplicate controls still need visible UI actions in Workout Builder (store support exists).
+
+### Commit 16 - Workout Builder Template Controls
+#### What changed
+- Added visible template controls in Workout Builder for `Up`, `Down`, and `Duplicate`.
+- Wired these controls to the existing `moveTemplate` and `duplicateTemplate` store actions.
+
+#### What is still left
+- You page metrics QoL remains pending: unified weekly review card and configurable weekly goal thresholds/alerts.

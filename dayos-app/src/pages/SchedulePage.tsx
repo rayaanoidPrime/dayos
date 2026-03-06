@@ -167,6 +167,8 @@ export function SchedulePage() {
   const addTemplate = useWorkoutStore((state) => state.addTemplate)
   const updateTemplate = useWorkoutStore((state) => state.updateTemplate)
   const deleteTemplate = useWorkoutStore((state) => state.deleteTemplate)
+  const moveTemplate = useWorkoutStore((state) => state.moveTemplate)
+  const duplicateTemplate = useWorkoutStore((state) => state.duplicateTemplate)
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
   const weekStartDate = format(weekStart, 'yyyy-MM-dd')
@@ -662,6 +664,15 @@ export function SchedulePage() {
                   <p className="text-xs text-tertiary">{template.exercises.length} exercise(s)</p>
                 </div>
                 <div className="flex gap-2">
+                  <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => moveTemplate(template.id, 'up')}>
+                    Up
+                  </button>
+                  <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => moveTemplate(template.id, 'down')}>
+                    Down
+                  </button>
+                  <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => duplicateTemplate(template.id)}>
+                    Duplicate
+                  </button>
                   <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => openTemplateEditor(template)}>
                     Edit
                   </button>
