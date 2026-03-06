@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { type PaperStatus, type TaskStatus, useResearchStore } from '../store/researchStore'
+import { type PaperStatus, useResearchStore } from '../store/researchStore'
 
 async function fetchArxivMetadata(arxivId: string): Promise<{ title: string; authors: string; abstract: string } | null> {
   const response = await fetch(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`)
@@ -33,17 +33,14 @@ const paperFilters: Array<{ key: 'all' | PaperStatus; label: string }> = [
 
 export function ResearchPage() {
   const projects = useResearchStore((state) => state.projects)
-  const tasks = useResearchStore((state) => state.tasks)
   const papers = useResearchStore((state) => state.papers)
   const ensurePrimaryProject = useResearchStore((state) => state.ensurePrimaryProject)
-  const addTask = useResearchStore((state) => state.addTask)
-  const moveTask = useResearchStore((state) => state.moveTask)
   const addPaper = useResearchStore((state) => state.addPaper)
 
   const activeProject = projects[0]
 
   const [activeFilter, setActiveFilter] = useState<'all' | PaperStatus>('all')
-  const [taskTitle, setTaskTitle] = useState('')
+  const [isManualDrawerOpen, setManualDrawerOpen] = useState(false)
   const [paperArxivId, setPaperArxivId] = useState('')
   const [paperStatus, setPaperStatus] = useState<PaperStatus>('to-read')
   const [paperTitle, setPaperTitle] = useState('')
@@ -58,28 +55,6 @@ export function ResearchPage() {
     }
     return papers.filter((paper) => paper.status === activeFilter)
   }, [activeFilter, papers])
-
-  const taskColumns = useMemo(
-    () => [
-      { key: 'todo' as TaskStatus, label: 'To Do' },
-      { key: 'in_progress' as TaskStatus, label: 'In Progress' },
-      { key: 'done' as TaskStatus, label: 'Done' },
-    ],
-    [],
-  )
-
-  const onAddTask = () => {
-    if (!taskTitle.trim()) {
-      return
-    }
-    const projectId = activeProject?.id ?? ensurePrimaryProject()
-    addTask({
-      title: taskTitle.trim(),
-      projectId,
-      status: 'todo',
-    })
-    setTaskTitle('')
-  }
 
   const onAutofill = async () => {
     if (!paperArxivId.trim()) {
@@ -124,6 +99,7 @@ export function ResearchPage() {
     setPaperAbstract('')
     setPaperNotes('')
     setAutofillStatus('')
+    setManualDrawerOpen(false)
   }
 
   return (
@@ -207,94 +183,75 @@ export function ResearchPage() {
         </table>
       </div>
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-[20px] font-normal text-text">Task Board</h2>
-        <div className="mb-3 flex gap-2">
-          <input
-            className="inspo-field flex-1"
-            placeholder="Task title"
-            value={taskTitle}
-            onChange={(event) => setTaskTitle(event.target.value)}
-          />
-          <button type="button" className="inspo-button-primary h-10 px-4" onClick={onAddTask}>
-            Add
-          </button>
+      <section className="mt-6 flex items-center justify-between rounded-input border border-border bg-surface p-3">
+        <div>
+          <p className="text-sm text-text">Need manual paper entry?</p>
+          <p className="text-xs text-tertiary">Use the drawer to keep this page clean.</p>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {taskColumns.map((column) => (
-            <div key={column.key} className="rounded-input border border-border bg-surface p-2">
-              <p className="mb-2 text-[11px] uppercase tracking-[0.05em] text-tertiary">{column.label}</p>
-              <ul className="space-y-2">
-                {tasks
-                  .filter((task) => task.status === column.key)
-                  .map((task) => (
-                    <li key={task.id} className="rounded border border-border bg-[var(--surface-strong)] p-2 text-xs text-muted">
-                      <p className="text-text">{task.title}</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {taskColumns
-                          .filter((item) => item.key !== task.status)
-                          .map((target) => (
-                            <button
-                              key={target.key}
-                              type="button"
-                              className="rounded border border-border px-1 py-0.5 text-[10px] text-tertiary"
-                              onClick={() => moveTask(task.id, target.key)}
-                            >
-                              {target.label}
-                            </button>
-                          ))}
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <button type="button" className="inspo-button-primary h-10 px-4" onClick={() => setManualDrawerOpen(true)}>
+          Manual Entry
+        </button>
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-[20px] font-normal text-text">Manual Entry</h2>
-        <div className="space-y-2">
-          <input
-            className="inspo-field w-full"
-            placeholder="Title"
-            value={paperTitle}
-            onChange={(event) => setPaperTitle(event.target.value)}
-          />
-          <input
-            className="inspo-field w-full"
-            placeholder="Authors"
-            value={paperAuthors}
-            onChange={(event) => setPaperAuthors(event.target.value)}
-          />
-          <textarea
-            className="inspo-textarea h-24 w-full"
-            placeholder="Abstract"
-            value={paperAbstract}
-            onChange={(event) => setPaperAbstract(event.target.value)}
-          />
-          <div className="flex gap-2">
-            <select
-              className="inspo-field"
-              value={paperStatus}
-              onChange={(event) => setPaperStatus(event.target.value as PaperStatus)}
-            >
-              <option value="to-read">To Read</option>
-              <option value="reading">Reading</option>
-              <option value="done">Done</option>
-            </select>
-            <input
-              className="inspo-field flex-1"
-              placeholder="Notes"
-              value={paperNotes}
-              onChange={(event) => setPaperNotes(event.target.value)}
-            />
+      {isManualDrawerOpen && (
+        <div className="fixed inset-0 z-40 bg-black/45" role="dialog" aria-modal="true">
+          <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => setManualDrawerOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[22px] border border-border bg-bg/95 p-4 backdrop-blur-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[18px] font-normal text-text">Manual Paper Entry</h2>
+              <button type="button" className="text-sm text-tertiary" onClick={() => setManualDrawerOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="space-y-2">
+              <input
+                className="inspo-field w-full"
+                placeholder="arXiv ID (optional)"
+                value={paperArxivId}
+                onChange={(event) => setPaperArxivId(event.target.value)}
+              />
+              <input
+                className="inspo-field w-full"
+                placeholder="Title"
+                value={paperTitle}
+                onChange={(event) => setPaperTitle(event.target.value)}
+              />
+              <input
+                className="inspo-field w-full"
+                placeholder="Authors"
+                value={paperAuthors}
+                onChange={(event) => setPaperAuthors(event.target.value)}
+              />
+              <textarea
+                className="inspo-textarea h-24 w-full"
+                placeholder="Abstract"
+                value={paperAbstract}
+                onChange={(event) => setPaperAbstract(event.target.value)}
+              />
+              <div className="flex gap-2">
+                <select
+                  className="inspo-field"
+                  value={paperStatus}
+                  onChange={(event) => setPaperStatus(event.target.value as PaperStatus)}
+                >
+                  <option value="to-read">To Read</option>
+                  <option value="reading">Reading</option>
+                  <option value="done">Done</option>
+                </select>
+                <input
+                  className="inspo-field flex-1"
+                  placeholder="Notes"
+                  value={paperNotes}
+                  onChange={(event) => setPaperNotes(event.target.value)}
+                />
+              </div>
+              <button type="button" className="inspo-button-primary h-10 w-full" onClick={onAddPaper}>
+                Add paper
+              </button>
+            </div>
           </div>
-          <button type="button" className="inspo-button-primary h-10 w-full" onClick={onAddPaper}>
-            Add paper
-          </button>
         </div>
-      </section>
+      )}
     </div>
   )
 }
