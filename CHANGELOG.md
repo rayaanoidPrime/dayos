@@ -565,3 +565,23 @@
   - drag-to-resize / drag-to-move schedule blocks,
   - conflict warnings when overlapping high-priority allocations,
   - weekly reflection insights linking planned vs completed time by category.
+
+### Commit 5 - Custom Workout Builder + Workout Events Wiring
+#### What changed
+- Added a custom workout-template system in `workoutStore` (create/update/delete templates with named exercise rows, sets/reps/load).
+- Added a new `Workout Builder` section on the Plan tab for managing workout templates.
+- Extended Add/Edit Event drawer: when event type is `workout`, you can now select a workout template or create/edit one inline without leaving the drawer.
+- Enforced template selection for workout events to keep workout-event data complete.
+- Wired Today workout initialization to schedule events:
+  - on non-rest days, if today has a workout event with a template, Today workout log seeds from that template,
+  - if the day log is untouched and template changes, it re-seeds safely,
+  - workout task title now reflects selected template name when present.
+
+#### What is still left
+- Add nutrition "left to hit" bars and calories-left summary above Today meals.
+- Add persistent macro-goal controls on You page and connect them to Today nutrition progress.
+- Add modify/delete controls for individual logged meals (currently import + read view only).
+- Brainstormed next-session enrichments:
+  - automatic workout progression suggestions based on recent logged reps/loads,
+  - optional workout template version history (track plan changes over time),
+  - calendar quick-clone for recurring workout blocks across semester phases.

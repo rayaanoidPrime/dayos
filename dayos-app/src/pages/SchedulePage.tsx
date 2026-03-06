@@ -7,6 +7,7 @@ import {
   getEventInstancesForWeek,
   useScheduleStore,
 } from '../store/scheduleStore'
+import { useWorkoutStore, type WorkoutTemplate, type WorkoutTemplateExercise } from '../store/workoutStore'
 
 const dayLabelMini = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const dayLabelLong = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -20,10 +21,19 @@ type EventFormState = {
   startTime: string
   endTime: string
   category: EventCategory
+  workoutTemplateId: string
   repeatWeekly: boolean
   repeatEnds: RepeatEnds
   repeatUntil: string
   notes: string
+}
+
+type WorkoutExerciseDraft = {
+  id: string
+  name: string
+  plannedSets: string
+  plannedReps: string
+  weightKg: string
 }
 
 const eventStyleByCategory: Record<EventCategory, string> = {
@@ -49,11 +59,36 @@ const createDefaultForm = (date: string): EventFormState => ({
   startTime: '08:00',
   endTime: '10:00',
   category: 'deep',
+  workoutTemplateId: '',
   repeatWeekly: false,
   repeatEnds: 'forever',
   repeatUntil: date,
   notes: '',
 })
+
+const randomId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+const createExerciseDraft = (): WorkoutExerciseDraft => ({
+  id: randomId(),
+  name: '',
+  plannedSets: '3',
+  plannedReps: '10',
+  weightKg: '',
+})
+
+const createDraftFromTemplate = (template?: WorkoutTemplate): WorkoutExerciseDraft[] =>
+  template && template.exercises.length > 0
+    ? template.exercises.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        plannedSets: String(exercise.plannedSets),
+        plannedReps: String(exercise.plannedReps),
+        weightKg: exercise.weightKg ? String(exercise.weightKg) : '',
+      }))
+    : [createExerciseDraft()]
 
 const parseMinutes = (time: string): number => {
   const [hour, minute] = time.split(':').map(Number)
@@ -71,6 +106,11 @@ export function SchedulePage() {
   const addEvent = useScheduleStore((state) => state.addEvent)
   const updateEvent = useScheduleStore((state) => state.updateEvent)
   const deleteEvent = useScheduleStore((state) => state.deleteEvent)
+
+  const templates = useWorkoutStore((state) => state.templates)
+  const addTemplate = useWorkoutStore((state) => state.addTemplate)
+  const updateTemplate = useWorkoutStore((state) => state.updateTemplate)
+  const deleteTemplate = useWorkoutStore((state) => state.deleteTemplate)
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), [])
   const weekStartDate = format(weekStart, 'yyyy-MM-dd')
@@ -95,8 +135,14 @@ export function SchedulePage() {
     createDefaultForm(format(addDays(weekStart, (new Date().getDay() + 6) % 7), 'yyyy-MM-dd')),
   )
   const [formError, setFormError] = useState('')
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [templateNameDraft, setTemplateNameDraft] = useState('')
+  const [templateExercisesDraft, setTemplateExercisesDraft] = useState<WorkoutExerciseDraft[]>([createExerciseDraft()])
+  const [templateError, setTemplateError] = useState('')
 
   const weekInstances = useMemo(() => getEventInstancesForWeek(events, weekStartDate), [events, weekStartDate])
+  const templateById = useMemo(() => Object.fromEntries(templates.map((template) => [template.id, template])), [templates])
 
   const activeDate = weekDates[activeDayIndex]?.iso ?? weekDates[0].iso
   const activeDayInstances = useMemo(() => getEventInstancesForDate(events, activeDate), [activeDate, events])
@@ -117,6 +163,7 @@ export function SchedulePage() {
       startTime: event.startTime,
       endTime: event.endTime,
       category: event.category,
+      workoutTemplateId: event.workoutTemplateId ?? '',
       repeatWeekly: event.repeat !== 'none',
       repeatEnds: event.repeat === 'weekly_until' ? 'until' : 'forever',
       repeatUntil: event.repeatUntil ?? event.date,
@@ -129,6 +176,62 @@ export function SchedulePage() {
     setDrawerOpen(false)
     setEditingEventId(null)
     setFormError('')
+    setTemplateEditorOpen(false)
+    setEditingTemplateId(null)
+    setTemplateError('')
+  }
+
+  const openTemplateEditor = (template?: WorkoutTemplate) => {
+    setTemplateEditorOpen(true)
+    setEditingTemplateId(template?.id ?? null)
+    setTemplateError('')
+    setTemplateNameDraft(template?.name ?? '')
+    setTemplateExercisesDraft(createDraftFromTemplate(template))
+  }
+
+  const normalizeTemplateExercises = (
+    exercises: WorkoutExerciseDraft[],
+  ): Omit<WorkoutTemplateExercise, 'id'>[] =>
+    exercises
+      .map((exercise) => ({
+        name: exercise.name.trim(),
+        plannedSets: Number(exercise.plannedSets),
+        plannedReps: Number(exercise.plannedReps),
+        weightKg: exercise.weightKg.trim() ? Number(exercise.weightKg) : undefined,
+      }))
+      .filter((exercise) => exercise.name.length > 0)
+      .map((exercise) => ({
+        ...exercise,
+        plannedSets: Number.isFinite(exercise.plannedSets) && exercise.plannedSets > 0 ? Math.round(exercise.plannedSets) : 3,
+        plannedReps: Number.isFinite(exercise.plannedReps) && exercise.plannedReps > 0 ? Math.round(exercise.plannedReps) : 10,
+        weightKg: Number.isFinite(exercise.weightKg) ? exercise.weightKg : undefined,
+      }))
+
+  const onSaveTemplate = () => {
+    const cleanName = templateNameDraft.trim()
+    const cleanExercises = normalizeTemplateExercises(templateExercisesDraft)
+
+    if (!cleanName) {
+      setTemplateError('Template name is required.')
+      return
+    }
+
+    if (cleanExercises.length === 0) {
+      setTemplateError('Add at least one exercise.')
+      return
+    }
+
+    if (editingTemplateId) {
+      updateTemplate(editingTemplateId, { name: cleanName, exercises: cleanExercises })
+      setFormState((state) => ({ ...state, workoutTemplateId: editingTemplateId }))
+    } else {
+      const templateId = addTemplate({ name: cleanName, exercises: cleanExercises })
+      setFormState((state) => ({ ...state, workoutTemplateId: templateId }))
+    }
+
+    setTemplateEditorOpen(false)
+    setEditingTemplateId(null)
+    setTemplateError('')
   }
 
   const saveEvent = () => {
@@ -144,6 +247,11 @@ export function SchedulePage() {
 
     if (parseMinutes(formState.endTime) <= parseMinutes(formState.startTime)) {
       setFormError('End time must be after start time.')
+      return
+    }
+
+    if (formState.category === 'workout' && !formState.workoutTemplateId) {
+      setFormError('Select or create a workout template.')
       return
     }
 
@@ -163,6 +271,7 @@ export function SchedulePage() {
       category: formState.category,
       repeat,
       repeatUntil,
+      workoutTemplateId: formState.category === 'workout' ? formState.workoutTemplateId || undefined : undefined,
       notes: formState.notes.trim() || undefined,
     } satisfies Omit<CalendarEvent, 'id'>
 
@@ -294,6 +403,11 @@ export function SchedulePage() {
                       {instance.event.repeat === 'weekly_until' && instance.event.repeatUntil ? ` until ${instance.event.repeatUntil}` : ' forever'}
                     </p>
                   )}
+                  {instance.event.category === 'workout' && instance.event.workoutTemplateId && (
+                    <p className="mt-1 text-[11px] text-muted">
+                      Template: {templateById[instance.event.workoutTemplateId]?.name ?? 'Custom workout'}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => openDrawerForEdit(instance.event)}>
@@ -311,6 +425,45 @@ export function SchedulePage() {
             </article>
           ))}
           {activeDayInstances.length === 0 && <p className="text-sm text-tertiary">No events scheduled for this day.</p>}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[16px] border border-border bg-surface p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[18px] font-normal text-white">Workout Builder</h2>
+          <button type="button" className="inspo-button-ghost h-9 px-4 text-[11px]" onClick={() => openTemplateEditor()}>
+            New Template
+          </button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {templates.map((template) => (
+            <article key={template.id} className="rounded-[12px] border border-border bg-[var(--surface-strong)] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[14px] text-white">{template.name}</p>
+                  <p className="text-xs text-tertiary">{template.exercises.length} exercise(s)</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => openTemplateEditor(template)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="inspo-button-ghost h-8 px-3 text-[11px]"
+                    onClick={() => {
+                      deleteTemplate(template.id)
+                      setFormState((state) =>
+                        state.workoutTemplateId === template.id ? { ...state, workoutTemplateId: '' } : state,
+                      )
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+          {templates.length === 0 && <p className="text-sm text-tertiary">No workout templates yet. Create one and attach it to workout events.</p>}
         </div>
       </section>
 
@@ -359,7 +512,16 @@ export function SchedulePage() {
               <select
                 className="inspo-field w-full"
                 value={formState.category}
-                onChange={(event) => setFormState((state) => ({ ...state, category: event.target.value as EventCategory }))}
+                onChange={(event) =>
+                  setFormState((state) => {
+                    const nextCategory = event.target.value as EventCategory
+                    return {
+                      ...state,
+                      category: nextCategory,
+                      workoutTemplateId: nextCategory === 'workout' ? state.workoutTemplateId : '',
+                    }
+                  })
+                }
               >
                 <option value="deep">Deep Work</option>
                 <option value="thesis">Thesis</option>
@@ -369,6 +531,43 @@ export function SchedulePage() {
                 <option value="exam">Exam</option>
                 <option value="other">Other</option>
               </select>
+
+              {formState.category === 'workout' && (
+                <div className="rounded-input border border-border bg-surface p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm text-white">Workout Template</p>
+                    <button type="button" className="inspo-button-ghost h-8 px-3 text-[11px]" onClick={() => openTemplateEditor()}>
+                      New Template
+                    </button>
+                  </div>
+                  <select
+                    className="inspo-field mt-2 w-full"
+                    value={formState.workoutTemplateId}
+                    onChange={(event) => setFormState((state) => ({ ...state, workoutTemplateId: event.target.value }))}
+                  >
+                    <option value="">Choose template</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formState.workoutTemplateId && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="inspo-button-ghost h-8 px-3 text-[11px]"
+                        onClick={() => {
+                          const selectedTemplate = templates.find((template) => template.id === formState.workoutTemplateId)
+                          openTemplateEditor(selectedTemplate)
+                        }}
+                      >
+                        Edit Selected Template
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="rounded-input border border-border bg-surface p-3">
                 <label className="flex items-center gap-2 text-sm text-white">
@@ -406,6 +605,114 @@ export function SchedulePage() {
                 value={formState.notes}
                 onChange={(event) => setFormState((state) => ({ ...state, notes: event.target.value }))}
               />
+
+              {templateEditorOpen && (
+                <div className="rounded-input border border-border bg-surface p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-sm text-white">{editingTemplateId ? 'Edit Workout Template' : 'New Workout Template'}</p>
+                    <button
+                      type="button"
+                      className="inspo-button-ghost h-8 px-3 text-[11px]"
+                      onClick={() => {
+                        setTemplateEditorOpen(false)
+                        setEditingTemplateId(null)
+                        setTemplateError('')
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <input
+                    className="inspo-field w-full"
+                    placeholder="Template name"
+                    value={templateNameDraft}
+                    onChange={(event) => setTemplateNameDraft(event.target.value)}
+                  />
+
+                  <div className="mt-2 space-y-2">
+                    {templateExercisesDraft.map((exercise, index) => (
+                      <div key={exercise.id} className="rounded-input border border-white/10 bg-[rgba(255,255,255,0.02)] p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-tertiary">Exercise {index + 1}</p>
+                          <button
+                            type="button"
+                            className="inspo-button-ghost h-7 px-2 text-[10px]"
+                            onClick={() =>
+                              setTemplateExercisesDraft((items) => (items.length > 1 ? items.filter((item) => item.id !== exercise.id) : items))
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <input
+                          className="inspo-field mt-2 w-full"
+                          placeholder="Exercise name"
+                          value={exercise.name}
+                          onChange={(event) =>
+                            setTemplateExercisesDraft((items) =>
+                              items.map((item) => (item.id === exercise.id ? { ...item, name: event.target.value } : item)),
+                            )
+                          }
+                        />
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={1}
+                            placeholder="Sets"
+                            value={exercise.plannedSets}
+                            onChange={(event) =>
+                              setTemplateExercisesDraft((items) =>
+                                items.map((item) => (item.id === exercise.id ? { ...item, plannedSets: event.target.value } : item)),
+                              )
+                            }
+                          />
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={1}
+                            placeholder="Reps"
+                            value={exercise.plannedReps}
+                            onChange={(event) =>
+                              setTemplateExercisesDraft((items) =>
+                                items.map((item) => (item.id === exercise.id ? { ...item, plannedReps: event.target.value } : item)),
+                              )
+                            }
+                          />
+                          <input
+                            className="inspo-field"
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            placeholder="Kg"
+                            value={exercise.weightKg}
+                            onChange={(event) =>
+                              setTemplateExercisesDraft((items) =>
+                                items.map((item) => (item.id === exercise.id ? { ...item, weightKg: event.target.value } : item)),
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      className="inspo-button-ghost h-8 px-3 text-[11px]"
+                      onClick={() => setTemplateExercisesDraft((items) => [...items, createExerciseDraft()])}
+                    >
+                      Add Exercise
+                    </button>
+                    <button type="button" className="inspo-button-primary h-8 px-3 text-[11px]" onClick={onSaveTemplate}>
+                      Save Template
+                    </button>
+                  </div>
+                  {templateError && <p className="mt-2 text-xs text-warning">{templateError}</p>}
+                </div>
+              )}
 
               {formError && <p className="text-xs text-warning">{formError}</p>}
 

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { db, saveImportedMeals } from '../lib/db'
 import { useJournalStore } from '../store/journalStore'
 import { useResearchStore } from '../store/researchStore'
-import { findNextEventInstance, useScheduleStore } from '../store/scheduleStore'
+import { findNextEventInstance, getEventInstancesForDate, useScheduleStore } from '../store/scheduleStore'
 import { useStudyStore } from '../store/studyStore'
 import { useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
@@ -174,6 +174,7 @@ export function TodayPage() {
 
   const weeklySplit = useWorkoutStore((state) => state.weeklySplit)
   const logsByDate = useWorkoutStore((state) => state.logsByDate)
+  const templates = useWorkoutStore((state) => state.templates)
   const ensureDayLog = useWorkoutStore((state) => state.ensureDayLog)
   const upsertLoggedSet = useWorkoutStore((state) => state.upsertLoggedSet)
 
@@ -184,9 +185,38 @@ export function TodayPage() {
   const journalEntry = entriesByDate[today]
   const complete = completionByDate[today] ?? {}
 
+  const todayWorkoutEvent = useMemo(
+    () => getEventInstancesForDate(events, today).find((item) => item.event.category === 'workout')?.event,
+    [events, today],
+  )
+
+  const todayWorkoutTemplate = useMemo(
+    () => templates.find((template) => template.id === todayWorkoutEvent?.workoutTemplateId),
+    [templates, todayWorkoutEvent?.workoutTemplateId],
+  )
+
   useEffect(() => {
+    if (sessionType === 'rest') {
+      ensureDayLog(today, sessionType)
+      return
+    }
+
+    if (todayWorkoutTemplate) {
+      ensureDayLog(today, sessionType, {
+        templateId: todayWorkoutTemplate.id,
+        templateName: todayWorkoutTemplate.name,
+        exercises: todayWorkoutTemplate.exercises.map((exercise) => ({
+          name: exercise.name,
+          plannedSets: exercise.plannedSets,
+          plannedReps: exercise.plannedReps,
+          weightKg: exercise.weightKg,
+        })),
+      })
+      return
+    }
+
     ensureDayLog(today, sessionType)
-  }, [ensureDayLog, sessionType, today])
+  }, [ensureDayLog, sessionType, today, todayWorkoutTemplate])
 
   useEffect(() => {
     ensureStudyDate(today)
@@ -292,7 +322,7 @@ export function TodayPage() {
       },
       {
         key: 'workout',
-        title: `Workout: ${toSessionTitle(sessionType)}`,
+        title: workoutLog?.templateName ? `Workout: ${workoutLog.templateName}` : `Workout: ${toSessionTitle(sessionType)}`,
         meta:
           workoutLog?.sessionType === 'rest'
             ? 'Recovery  -  Rest day'
