@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 type ClassMode = 'offline' | 'online'
-export type EventCategory = 'deep' | 'thesis' | 'health' | 'workout' | 'deadline' | 'exam' | 'other'
+export type EventCategory = 'deep' | 'project' | 'health' | 'workout' | 'deadline' | 'exam' | 'other'
 export type EventRepeat = 'none' | 'weekly_until' | 'weekly_forever'
 
 export type RecurringClass = {
@@ -48,6 +48,16 @@ const randomId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+const coerceEventCategory = (value: string | undefined): EventCategory => {
+  if (value === 'thesis') {
+    return 'project'
+  }
+  if (value === 'deep' || value === 'project' || value === 'health' || value === 'workout' || value === 'deadline' || value === 'exam') {
+    return value
+  }
+  return 'other'
+}
 
 const toUtcMidnight = (date: string): number => {
   const [year, month, day] = date.split('-').map(Number)
@@ -96,7 +106,10 @@ export const getEventInstancesForDate = (events: CalendarEvent[], date: string):
   events
     .filter((event) => eventOccursOnDate(event, date))
     .map((event) => ({
-      event,
+      event: {
+        ...event,
+        category: coerceEventCategory(event.category as string),
+      },
       date,
       startTime: event.startTime,
       endTime: event.endTime,
@@ -141,11 +154,13 @@ export const useScheduleStore = create<ScheduleState>()(
         })),
       addEvent: (payload) =>
         set((state) => ({
-          events: [...state.events, { ...payload, id: randomId() }],
+          events: [...state.events, { ...payload, category: coerceEventCategory(payload.category), id: randomId() }],
         })),
       updateEvent: (eventId, payload) =>
         set((state) => ({
-          events: state.events.map((event) => (event.id === eventId ? { ...payload, id: eventId } : event)),
+          events: state.events.map((event) =>
+            event.id === eventId ? { ...payload, category: coerceEventCategory(payload.category), id: eventId } : event,
+          ),
         })),
       deleteEvent: (eventId) =>
         set((state) => ({

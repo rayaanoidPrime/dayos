@@ -109,7 +109,7 @@ export function ResearchPage() {
           <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-[2]">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Natural Law / Research
+          Research Workspace
         </button>
         <h1 className="page-title">Paper Log</h1>
         <p className="page-subtitle">Syncing with ArXiv RSS</p>

@@ -607,3 +607,20 @@
   - adaptive macro goal modes (training day vs rest day targets),
   - schedule completion analytics (planned time vs completed checklist by category),
   - template-to-shopping-list helper generated from planned nutrition/workout week.
+
+### Commit 7 - Remove Thesis-Specific Language and Normalize to Generic Projects
+#### What changed
+- Replaced thesis-specific scheduling category with generic `project` category in the Plan event taxonomy.
+- Updated Plan visuals and controls (`legend`, category dropdown, labels) from `Thesis` to `Project`.
+- Added compatibility coercion so older persisted `thesis` events are automatically treated as `project` without data loss.
+- Removed thesis-institutional copy from key screens:
+  - Today header now uses `Daily Allocation`,
+  - Research header now uses `Research Workspace`.
+
+#### What is still left
+- Implement true project-centric research workflows:
+  - project CRUD and active-project switcher in Research tab,
+  - project-scoped papers/tasks/worklogs views,
+  - per-project exportable worklogs (CSV/JSON/Markdown).
+- Add research project metadata model (goal, milestone dates, tags, repository/paper links) and a project overview card.
+- Add project-level progress summaries to You/Today surfaces (active project snapshot + upcoming milestones).

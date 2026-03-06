@@ -38,7 +38,7 @@ type WorkoutExerciseDraft = {
 
 const eventStyleByCategory: Record<EventCategory, string> = {
   deep: 'border-[#C8A37E]/70 bg-[#C8A37E]/32 text-[#F5E2CC]',
-  thesis: 'border-[#7FA5D8]/70 bg-[#7FA5D8]/30 text-[#DCE8F8]',
+  project: 'border-[#7FA5D8]/70 bg-[#7FA5D8]/30 text-[#DCE8F8]',
   health: 'border-[#7FCB92]/70 bg-[#7FCB92]/30 text-[#DFF6E5]',
   workout: 'border-[#6ED1B6]/70 bg-[#6ED1B6]/30 text-[#D6FAEF]',
   deadline: 'border-[#F3BD7A]/70 bg-[#F3BD7A]/30 text-[#FBE8CF]',
@@ -48,7 +48,7 @@ const eventStyleByCategory: Record<EventCategory, string> = {
 
 const legendItems: Array<{ category: EventCategory; label: string }> = [
   { category: 'deep', label: 'Deep Work' },
-  { category: 'thesis', label: 'Thesis' },
+  { category: 'project', label: 'Project' },
   { category: 'health', label: 'Health' },
   { category: 'workout', label: 'Workout' },
 ]
@@ -99,7 +99,7 @@ const parseMinutes = (time: string): number => {
 }
 
 const prettyCategory = (category: EventCategory): string =>
-  category.charAt(0).toUpperCase() + category.slice(1)
+  category === 'project' ? 'Project' : category.charAt(0).toUpperCase() + category.slice(1)
 
 export function SchedulePage() {
   const events = useScheduleStore((state) => state.events)
@@ -524,7 +524,7 @@ export function SchedulePage() {
                 }
               >
                 <option value="deep">Deep Work</option>
-                <option value="thesis">Thesis</option>
+                <option value="project">Project</option>
                 <option value="health">Health</option>
                 <option value="workout">Workout</option>
                 <option value="deadline">Deadline</option>

@@ -481,7 +481,7 @@ export function TodayPage() {
     <div className="h-full max-w-full overflow-x-hidden">
       <div className="grid gap-8 md:grid-cols-2 md:gap-10">
         <div className="md:col-span-2">
-          <span className="page-label">Institute of Natural Law</span>
+          <span className="page-label">Daily Allocation</span>
           <h1 className="page-title">{weekday}</h1>
           <span className="page-subtitle">{subtitle}</span>
         </div>
