@@ -585,3 +585,25 @@
   - automatic workout progression suggestions based on recent logged reps/loads,
   - optional workout template version history (track plan changes over time),
   - calendar quick-clone for recurring workout blocks across semester phases.
+
+### Commit 6 - Nutrition Left-to-Hit Bars + Persistent Macro Goal Controls
+#### What changed
+- Added persisted `setNutritionTargets` action in `todayStore` for default daily macro goals.
+- Added a new `Daily Macro Goals` card in the `You` page:
+  - editable calories/protein/carbs/fats targets,
+  - validation for non-negative values,
+  - one-click save confirmation,
+  - targets persist and remain active every day until changed.
+- Upgraded Today Nutrition section with progress analytics:
+  - calories-left header and stacked calorie bar,
+  - stacked macro bars for protein/carbs/fats showing consumed vs remaining,
+  - per-macro “grams left” and consumed/target values.
+
+#### What is still left
+- Optional UX hardening: inline edit/delete for individual meals in Today list.
+- Optional schedule polish: visual lane-splitting when events overlap within the same day/time window.
+- Optional quality-of-life: event search/filter in Plan (category/date/template).
+- Brainstormed next-session enrichments:
+  - adaptive macro goal modes (training day vs rest day targets),
+  - schedule completion analytics (planned time vs completed checklist by category),
+  - template-to-shopping-list helper generated from planned nutrition/workout week.

@@ -378,7 +378,61 @@ export function TodayPage() {
     done: papers.find((paper) => paper.status === 'done'),
   }
 
-  const totalCalories = todayMeals.reduce((sum, meal) => sum + meal.calories, 0)
+  const nutritionProgress = useMemo(() => {
+    const consumed = todayMeals.reduce(
+      (acc, meal) => ({
+        calories: acc.calories + meal.calories,
+        proteinG: acc.proteinG + meal.protein_g,
+        carbsG: acc.carbsG + meal.carbs_g,
+        fatsG: acc.fatsG + meal.fats_g,
+      }),
+      {
+        calories: 0,
+        proteinG: 0,
+        carbsG: 0,
+        fatsG: 0,
+      },
+    )
+
+    const remaining = {
+      calories: Math.max(0, nutritionTargets.calories - consumed.calories),
+      proteinG: Math.max(0, nutritionTargets.proteinG - consumed.proteinG),
+      carbsG: Math.max(0, nutritionTargets.carbsG - consumed.carbsG),
+      fatsG: Math.max(0, nutritionTargets.fatsG - consumed.fatsG),
+    }
+
+    return { consumed, remaining }
+  }, [nutritionTargets, todayMeals])
+
+  const macroBars = useMemo(
+    () => [
+      {
+        key: 'protein',
+        label: 'Protein',
+        consumed: nutritionProgress.consumed.proteinG,
+        remaining: nutritionProgress.remaining.proteinG,
+        target: nutritionTargets.proteinG,
+        colorClass: 'bg-[#7FA5D8]',
+      },
+      {
+        key: 'carbs',
+        label: 'Carbs',
+        consumed: nutritionProgress.consumed.carbsG,
+        remaining: nutritionProgress.remaining.carbsG,
+        target: nutritionTargets.carbsG,
+        colorClass: 'bg-[#C8A37E]',
+      },
+      {
+        key: 'fats',
+        label: 'Fats',
+        consumed: nutritionProgress.consumed.fatsG,
+        remaining: nutritionProgress.remaining.fatsG,
+        target: nutritionTargets.fatsG,
+        colorClass: 'bg-[#7FCB92]',
+      },
+    ],
+    [nutritionProgress, nutritionTargets],
+  )
 
   const onWorkoutRepsCommit = (row: WorkoutRow) => {
     const value = repsDraft[row.key] ?? String(row.reps)
@@ -579,8 +633,63 @@ export function TodayPage() {
 
           <section>
             <h2 className="mb-4 mt-8 flex items-center justify-between text-[20px] font-normal text-white">
-              Nutrition <span className="text-[13px] text-tertiary">{totalCalories} / {nutritionTargets.calories} kcal</span>
+              Nutrition <span className="text-[13px] text-tertiary">{nutritionProgress.consumed.calories} / {nutritionTargets.calories} kcal</span>
             </h2>
+            <div className="mb-4 rounded-input border border-border bg-surface p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.05em] text-tertiary">Calories Left</p>
+                <p className="text-sm text-white">{nutritionProgress.remaining.calories} kcal</p>
+              </div>
+              <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/10">
+                <span
+                  className="bg-white/60"
+                  style={{
+                    width: `${
+                      nutritionTargets.calories > 0
+                        ? Math.min(100, (nutritionProgress.consumed.calories / nutritionTargets.calories) * 100)
+                        : 0
+                    }%`,
+                  }}
+                />
+                <span
+                  className="bg-white/20"
+                  style={{
+                    width: `${
+                      nutritionTargets.calories > 0
+                        ? Math.min(100, (nutritionProgress.remaining.calories / nutritionTargets.calories) * 100)
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {macroBars.map((macro) => (
+                  <div key={macro.key}>
+                    <div className="mb-1 flex items-center justify-between text-xs text-muted">
+                      <span>{macro.label}</span>
+                      <span>
+                        {macro.remaining}g left ({macro.consumed}/{macro.target}g)
+                      </span>
+                    </div>
+                    <div className="flex h-2 overflow-hidden rounded-full bg-white/10">
+                      <span
+                        className={macro.colorClass}
+                        style={{
+                          width: `${macro.target > 0 ? Math.min(100, (macro.consumed / macro.target) * 100) : 0}%`,
+                        }}
+                      />
+                      <span
+                        className="bg-white/15"
+                        style={{
+                          width: `${macro.target > 0 ? Math.min(100, (macro.remaining / macro.target) * 100) : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="mb-3 flex items-center gap-2">
               <button type="button" className="inspo-button-ghost h-9 px-4" onClick={() => setImportOpen((open) => !open)}>
                 Quick Import JSON/CSV

@@ -33,6 +33,8 @@ export function YouPage() {
   const setExamMode = useUIStore((state) => state.setExamMode)
 
   const completionByDate = useTodayStore((state) => state.completionByDate)
+  const nutritionTargets = useTodayStore((state) => state.nutritionTargets)
+  const setNutritionTargets = useTodayStore((state) => state.setNutritionTargets)
   const studyByDate = useStudyStore((state) => state.byDate)
   const workoutLogsByDate = useWorkoutStore((state) => state.logsByDate)
 
@@ -42,6 +44,11 @@ export function YouPage() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [queueCount, setQueueCount] = useState(0)
   const [syncStatus, setSyncStatus] = useState('')
+  const [targetCalories, setTargetCalories] = useState(String(nutritionTargets.calories))
+  const [targetProtein, setTargetProtein] = useState(String(nutritionTargets.proteinG))
+  const [targetCarbs, setTargetCarbs] = useState(String(nutritionTargets.carbsG))
+  const [targetFats, setTargetFats] = useState(String(nutritionTargets.fatsG))
+  const [goalStatus, setGoalStatus] = useState('')
 
   const profileName = useMemo(() => getProfileName(sessionEmail), [sessionEmail])
   const profileInitial = useMemo(() => profileName.charAt(0).toUpperCase(), [profileName])
@@ -152,6 +159,33 @@ export function YouPage() {
     }
     await refreshSyncInfo()
   }
+
+  const saveNutritionGoals = () => {
+    const nextCalories = Number(targetCalories)
+    const nextProtein = Number(targetProtein)
+    const nextCarbs = Number(targetCarbs)
+    const nextFats = Number(targetFats)
+
+    if (![nextCalories, nextProtein, nextCarbs, nextFats].every((value) => Number.isFinite(value) && value >= 0)) {
+      setGoalStatus('Enter valid non-negative numbers for all macro targets.')
+      return
+    }
+
+    setNutritionTargets({
+      calories: Math.round(nextCalories),
+      proteinG: Math.round(nextProtein),
+      carbsG: Math.round(nextCarbs),
+      fatsG: Math.round(nextFats),
+    })
+    setGoalStatus('Saved. These targets apply every day until changed again.')
+  }
+
+  useEffect(() => {
+    setTargetCalories(String(nutritionTargets.calories))
+    setTargetProtein(String(nutritionTargets.proteinG))
+    setTargetCarbs(String(nutritionTargets.carbsG))
+    setTargetFats(String(nutritionTargets.fatsG))
+  }, [nutritionTargets])
 
   useEffect(() => {
     void refreshSyncInfo()
@@ -293,6 +327,51 @@ export function YouPage() {
             <span>Best Streak</span>
             <span className="text-white">{dashboard.bestStreak} Days</span>
           </div>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-[20px] font-normal text-text">Daily Macro Goals</h2>
+        <div className="rounded-input border border-border bg-surface p-4">
+          <p className="mb-3 text-xs text-tertiary">These persist as your default daily targets until you update them.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              className="inspo-field"
+              type="number"
+              min={0}
+              placeholder="Calories"
+              value={targetCalories}
+              onChange={(event) => setTargetCalories(event.target.value)}
+            />
+            <input
+              className="inspo-field"
+              type="number"
+              min={0}
+              placeholder="Protein (g)"
+              value={targetProtein}
+              onChange={(event) => setTargetProtein(event.target.value)}
+            />
+            <input
+              className="inspo-field"
+              type="number"
+              min={0}
+              placeholder="Carbs (g)"
+              value={targetCarbs}
+              onChange={(event) => setTargetCarbs(event.target.value)}
+            />
+            <input
+              className="inspo-field"
+              type="number"
+              min={0}
+              placeholder="Fats (g)"
+              value={targetFats}
+              onChange={(event) => setTargetFats(event.target.value)}
+            />
+          </div>
+          <button type="button" className="inspo-button-primary mt-3 h-10 w-full" onClick={saveNutritionGoals}>
+            Save Macro Goals
+          </button>
+          {goalStatus && <p className="mt-2 text-xs text-tertiary">{goalStatus}</p>}
         </div>
       </section>
 

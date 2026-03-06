@@ -34,6 +34,7 @@ type TodayState = {
   addWater: (date: string, delta: number) => void
   resetWater: (date: string) => void
   addMealTemplate: (template: Omit<MealTemplate, 'id'>) => void
+  setNutritionTargets: (targets: NutritionTargets) => void
 }
 
 const randomId = () =>
@@ -100,6 +101,15 @@ export const useTodayStore = create<TodayState>()(
           return {
             mealTemplates: [{ ...template, id: randomId() }, ...state.mealTemplates].slice(0, 20),
           }
+        }),
+      setNutritionTargets: (targets) =>
+        set({
+          nutritionTargets: {
+            calories: Math.max(0, Math.round(targets.calories)),
+            proteinG: Math.max(0, Math.round(targets.proteinG)),
+            fatsG: Math.max(0, Math.round(targets.fatsG)),
+            carbsG: Math.max(0, Math.round(targets.carbsG)),
+          },
         }),
     }),
     {
