@@ -73,6 +73,11 @@ type WorkoutState = {
   addTemplate: (payload: TemplateInput) => string
   updateTemplate: (templateId: string, payload: TemplateInput) => void
   deleteTemplate: (templateId: string) => void
+  moveTemplate: (templateId: string, direction: 'up' | 'down') => void
+  duplicateTemplate: (templateId: string) => void
+  manualSessionOverrides: Record<string, SessionType>
+  setSessionOverride: (date: string, sessionType: SessionType) => void
+  clearSessionOverride: (date: string) => void
 }
 
 const defaultExercisesBySession: Record<SessionType, WorkoutExercise[]> = {
@@ -153,7 +158,10 @@ export const useWorkoutStore = create<WorkoutState>()(
       weeklySplit: ['push', 'pull', 'legs', 'rest', 'upper', 'lower', 'cardio'],
       logsByDate: {},
       templates: [],
+      manualSessionOverrides: {},
       ensureDayLog: (date, sessionType, seed) => {
+        const override = get().manualSessionOverrides[date]
+        const effectiveSession = override ?? sessionType
         const existing = get().logsByDate[date]
         if (existing) {
           if (!seed || !isLogUntouched(existing)) {
@@ -167,7 +175,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           set((state) => ({
             logsByDate: {
               ...state.logsByDate,
-              [date]: buildLogFromSeed(sessionType, seed),
+              [date]: buildLogFromSeed(effectiveSession, seed),
             },
           }))
           return
@@ -176,7 +184,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           logsByDate: {
             ...state.logsByDate,
-            [date]: buildLogFromSeed(sessionType, seed),
+            [date]: buildLogFromSeed(effectiveSession, seed),
           },
         }))
       },
@@ -274,6 +282,54 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           templates: state.templates.filter((template) => template.id !== templateId),
         })),
+      moveTemplate: (templateId, direction) =>
+        set((state) => {
+          const index = state.templates.findIndex((template) => template.id === templateId)
+          if (index === -1) {
+            return state
+          }
+
+          const swapIndex = direction === 'up' ? index - 1 : index + 1
+          if (swapIndex < 0 || swapIndex >= state.templates.length) {
+            return state
+          }
+
+          const templates = [...state.templates]
+          const [item] = templates.splice(index, 1)
+          templates.splice(swapIndex, 0, item)
+
+          return { templates }
+        }),
+      duplicateTemplate: (templateId) =>
+        set((state) => {
+          const original = state.templates.find((template) => template.id === templateId)
+          if (!original) {
+            return state
+          }
+          const duplicated: WorkoutTemplate = {
+            ...original,
+            id: randomId(),
+            name: `${original.name} Copy`,
+            updatedAt: new Date().toISOString(),
+            exercises: original.exercises.map((exercise) => ({ ...exercise, id: randomId() })),
+          }
+          return {
+            templates: [...state.templates, duplicated],
+          }
+        }),
+      setSessionOverride: (date, overrideSession) =>
+        set((state) => ({
+          manualSessionOverrides: {
+            ...state.manualSessionOverrides,
+            [date]: overrideSession,
+          },
+        })),
+      clearSessionOverride: (date) =>
+        set((state) => {
+          const nextOverrides = { ...state.manualSessionOverrides }
+          delete nextOverrides[date]
+          return { manualSessionOverrides: nextOverrides }
+        }),
     }),
     { name: 'dayos-workout-state' },
   ),

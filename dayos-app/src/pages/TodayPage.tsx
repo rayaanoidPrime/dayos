@@ -9,7 +9,7 @@ import { useStudyStore } from '../store/studyStore'
 import type { MealTemplate } from '../store/todayStore'
 import { NutritionDayType, useTodayStore } from '../store/todayStore'
 import { useWorkoutStore } from '../store/workoutStore'
-import type { Meal } from '../types/domain'
+import type { Meal, SessionType } from '../types/domain'
 
 function toSessionTitle(session: string): string {
   return session
@@ -183,11 +183,23 @@ export function TodayPage() {
   const templates = useWorkoutStore((state) => state.templates)
   const ensureDayLog = useWorkoutStore((state) => state.ensureDayLog)
   const upsertLoggedSet = useWorkoutStore((state) => state.upsertLoggedSet)
+  const manualSessionOverrides = useWorkoutStore((state) => state.manualSessionOverrides)
+  const setSessionOverride = useWorkoutStore((state) => state.setSessionOverride)
+  const clearSessionOverride = useWorkoutStore((state) => state.clearSessionOverride)
 
   const dayIndexForSplit = (new Date().getDay() + 6) % 7
-  const sessionType = weeklySplit[dayIndexForSplit] ?? 'rest'
+  const baseSessionType = weeklySplit[dayIndexForSplit] ?? 'rest'
+  const sessionOverrideType = manualSessionOverrides[today]
+  const sessionType = sessionOverrideType ?? baseSessionType
   const dayType: NutritionDayType = sessionType === 'rest' ? 'rest' : 'training'
   const workoutLog = logsByDate[today]
+  const trainingOptions = weeklySplit.filter((type) => type !== 'rest')
+  const [overrideSelection, setOverrideSelection] = useState<SessionType>(trainingOptions[0] ?? 'push')
+  useEffect(() => {
+    if (!trainingOptions.includes(overrideSelection)) {
+      setOverrideSelection(trainingOptions[0] ?? 'push')
+    }
+  }, [trainingOptions, overrideSelection])
   const studyBlocks = studyByDate[today]?.blocks ?? []
   const journalEntry = entriesByDate[today]
   const complete = completionByDate[today] ?? {}
@@ -465,6 +477,28 @@ export function TodayPage() {
     return rows
   }, [workoutLog])
 
+  const progressiveHints = useMemo(() => {
+    if (!workoutLog) {
+      return []
+    }
+    return workoutLog.exercises
+      .map((exercise) => {
+        const lastSet = exercise.loggedSets[exercise.loggedSets.length - 1]
+        if (!lastSet?.weightKg || !exercise.weightKg) {
+          return null
+        }
+        const difference = Number((lastSet.weightKg - (exercise.weightKg ?? 0)).toFixed(1))
+        if (Math.abs(difference) < 0.5) {
+          return null
+        }
+        return {
+          name: exercise.name,
+          diff: difference,
+        }
+      })
+      .filter(Boolean)
+  }, [workoutLog])
+
   const paperByStatus = {
     toRead: papers.find((paper) => paper.status === 'to-read'),
     reading: papers.find((paper) => paper.status === 'reading'),
@@ -649,8 +683,59 @@ export function TodayPage() {
               Workout Log <span className="text-[13px] text-tertiary">{sessionType === 'rest' ? 'Rest Day' : 'Active'}</span>
             </h2>
             {sessionType === 'rest' ? (
-              <p className="text-sm text-tertiary">Rest day configured in weekly split.</p>
+              <div className="space-y-2">
+                <p className="text-sm text-tertiary">Rest day configured in weekly split.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-tertiary">Train as</span>
+                  <select
+                    className="inspo-field w-full max-w-[180px]"
+                    value={overrideSelection}
+                    onChange={(event) => setOverrideSelection(event.target.value as SessionType)}
+                  >
+                    {trainingOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {toSessionTitle(option)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="inspo-button-primary h-9 px-4"
+                    onClick={() => {
+                      setSessionOverride(today, overrideSelection)
+                      ensureDayLog(today, overrideSelection)
+                    }}
+                  >
+                    Apply override
+                  </button>
+                  {sessionOverrideType && (
+                    <button
+                      type="button"
+                      className="inspo-button-ghost h-9 px-3 text-[11px]"
+                      onClick={() => {
+                        clearSessionOverride(today)
+                        ensureDayLog(today, baseSessionType)
+                      }}
+                    >
+                      Clear override
+                    </button>
+                  )}
+                </div>
+                {sessionOverrideType && (
+                  <p className="text-xs text-success">
+                    Current override: {toSessionTitle(sessionOverrideType)}
+                  </p>
+                )}
+              </div>
             ) : (
+              <>
+                {progressiveHints.length > 0 && (
+                  <div className="mb-3 text-xs text-success">
+                    {progressiveHints
+                      .map((hint) => `${hint?.name} ${hint?.diff > 0 ? '+' : ''}${hint?.diff}kg vs plan`)
+                      .join(' · ')}
+                  </div>
+                )}
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr>

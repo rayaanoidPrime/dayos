@@ -716,3 +716,12 @@
 #### What is still left
 - Implement inline meal template management (delete/edit templates) and meal history per project/workout context.
 - Add nutrition-specific alerts on the You page when day-type macros are missed.
+
+### Commit 13 - Workout QoL & Rest Overrides
+#### What changed
+- Added manual session overrides that let the Today workout log treat a scheduled rest day as a training session via quick controls.
+- Showed progressive-overload hints derived from recently logged sets to highlight when you lifted heavier than planned.
+
+#### What is still left
+- Expand workout template tooling (reorder/duplicate templates) and tie those templates into the Workout Builder card on Plan.
+- Add adaptive alerts on Today/You when manual overrides are active or when progressive hints suggest overreaching.
